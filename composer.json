@@ -1,0 +1,57 @@
+{
+    "name": "arabcoders/database",
+    "version": "1.0.0",
+    "type": "library",
+    "description": "Standalone database toolkit for PDO with query building, ORM, schema migrations, and seeding.",
+    "scripts": {
+        "test": "vendor/bin/phpunit --display-all-issues --colors=auto",
+        "tests": "vendor/bin/phpunit --display-all-issues --colors=auto",
+        "test:all": "php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/bin/phpunit --display-all-issues --colors=auto",
+        "test:coverage": [
+            "mkdir -p data/coverage",
+            "php -d zend_extension=xdebug -d xdebug.mode=coverage -d xdebug.start_with_request=no vendor/bin/phpunit --coverage-filter src/ --coverage-clover data/coverage/clover.xml --coverage-xml data/coverage/xml --coverage-text",
+            "echo 'coverage report generated in data/coverage/'"
+        ],
+        "format": "vendor/bin/mago format",
+        "format:ci": "vendor/bin/mago format --check",
+        "lint": "vendor/bin/mago lint"
+    },
+    "keywords": [
+        "pdo",
+        "database",
+        "mysql",
+        "sqlite",
+        "pgsql"
+    ],
+    "homepage": "https://github.com/arabcoders",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Abdulmohsen",
+            "email": "admin@arabcoders.org"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "ext-pdo": "*",
+        "psr/simple-cache": "^3.0",
+        "psr/log": "^3.0",
+        "psr/container": "^2.0",
+        "psr/event-dispatcher": "^1.0",
+        "psr/http-message": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.0",
+        "carthage-software/mago": "^1.3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "arabcoders\\database\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "tests\\": "tests/"
+        }
+    }
+}

@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace arabcoders\database\Schema\Operation;
+
+use arabcoders\database\Schema\Definition\TableDefinition;
+
+final readonly class CreateTableOperation implements SchemaOperation
+{
+    public const string TYPE = 'create_table';
+
+    public function __construct(
+        public TableDefinition $table,
+    ) {}
+
+    public function getType(): string
+    {
+        return self::TYPE;
+    }
+
+    public function getTableName(): ?string
+    {
+        return $this->table->name;
+    }
+}
