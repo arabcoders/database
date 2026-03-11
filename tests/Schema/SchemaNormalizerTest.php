@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
+use arabcoders\database\Dialect\MysqlDialect as DatabaseMysqlDialect;
 use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\IndexDefinition;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
-use arabcoders\database\Dialect\MysqlDialect as DatabaseMysqlDialect;
 use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\PostgresDialect;
 use arabcoders\database\Schema\SchemaNormalizer;

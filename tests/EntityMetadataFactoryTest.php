@@ -16,14 +16,14 @@ use tests\fixtures\BlogProfileEntity;
 use tests\fixtures\BlogTagEntity;
 use tests\fixtures\BlogUserEntity;
 use tests\fixtures\InvalidValidationTypeEntity;
-use tests\fixtures\OnCreateUpdateEntity;
-use tests\fixtures\PhaseValidatedEntity;
 use tests\fixtures\NoColumnEntity;
 use tests\fixtures\NoTableEntity;
+use tests\fixtures\OnCreateUpdateEntity;
+use tests\fixtures\PhaseValidatedEntity;
 use tests\fixtures\SoftDeleteUserEntity;
 use tests\fixtures\UserEntity;
-use tests\fixtures\ValidatedUserEntity;
 use tests\fixtures\ValidatedProfileEntity;
+use tests\fixtures\ValidatedUserEntity;
 
 final class EntityMetadataFactoryTest extends TestCase
 {

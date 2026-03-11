@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
+use arabcoders\database\Dialect\SqliteDialect as QuerySqliteDialect;
 use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\PostgresDialect;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
-use arabcoders\database\Dialect\SqliteDialect as QuerySqliteDialect;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

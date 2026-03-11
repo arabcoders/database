@@ -12,9 +12,9 @@ use arabcoders\database\Query\SelectQuery;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Throwable;
 use tests\fixtures\Cache\InMemoryCache;
 use tests\fixtures\FailingPdo;
+use Throwable;
 
 final class ConnectionTest extends TestCase
 {

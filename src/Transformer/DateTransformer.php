@@ -63,7 +63,7 @@ final readonly class DateTransformer
             return $value;
         }
 
-        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+        if (is_int($value) || is_string($value) && ctype_digit($value)) {
             $date = new DateTimeImmutable('@' . (string) $value);
 
             return $date->setTimezone(new DateTimeZone(date_default_timezone_get()));

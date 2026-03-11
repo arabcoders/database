@@ -22,8 +22,8 @@ use tests\fixtures\BlogProfileEntity;
 use tests\fixtures\BlogTagEntity;
 use tests\fixtures\BlogUserEntity;
 use tests\fixtures\DiffUserEntity;
-use tests\fixtures\MultiKeyEntity;
 use tests\fixtures\MisconfiguredRelationUserEntity;
+use tests\fixtures\MultiKeyEntity;
 use tests\fixtures\NoPrimaryEntity;
 use tests\fixtures\NullableUserEntity;
 use tests\fixtures\OnCreateUpdateEntity;
@@ -50,7 +50,7 @@ final class EntityRepositoryTest extends TestCase
         $user->displayName = 'First';
 
         $id = $repo->insert($user);
-        static::assertSame((int)$id, $user->id);
+        static::assertSame((int) $id, $user->id);
 
         $found = $repo->find($user->id);
         static::assertInstanceOf(UserEntity::class, $found);
@@ -226,8 +226,7 @@ final class EntityRepositoryTest extends TestCase
         $updatedEntity = $repo->findOneBy(['email' => 'second@example.com']);
         static::assertSame('Updated', $updatedEntity->displayName);
 
-        $updatedWhere = $repo->updateWhere(['display_name' => 'FirstUpdated'],
-            Condition::equals('email', 'first@example.com'));
+        $updatedWhere = $repo->updateWhere(['display_name' => 'FirstUpdated'], Condition::equals('email', 'first@example.com'));
         static::assertSame(1, $updatedWhere);
 
         $updatedFirst = $repo->findOneBy(['email' => 'first@example.com']);
@@ -556,7 +555,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(['attached' => 0, 'updated' => 0, 'skipped' => 1], $ignored);
 
         $row = $connection->fetchOne(
-            (new SelectQuery('user_tags'))
+            new SelectQuery('user_tags')
                 ->select(['tagged_at'])
                 ->where(Condition::equals('user_id', $user->id))
                 ->where(Condition::equals('tag_id', $tag->id)),
@@ -757,16 +756,14 @@ final class EntityRepositoryTest extends TestCase
             $repo->createRelated($entity, 'brokenPosts', ['title' => 'Broken']);
             static::fail('Expected exception for unmapped foreign key.');
         } catch (RuntimeException $exception) {
-            static::assertStringContainsString('foreign key "missing_user_id" is not mapped',
-                $exception->getMessage());
+            static::assertStringContainsString('foreign key "missing_user_id" is not mapped', $exception->getMessage());
         }
 
         try {
             $repo->createRelated($entity, 'brokenProfile', ['title' => 'Broken']);
             static::fail('Expected exception for unmapped local key.');
         } catch (RuntimeException $exception) {
-            static::assertStringContainsString('local key "missing_local_key" is not mapped',
-                $exception->getMessage());
+            static::assertStringContainsString('local key "missing_local_key" is not mapped', $exception->getMessage());
         }
     }
 
@@ -1007,8 +1004,7 @@ final class EntityRepositoryTest extends TestCase
 
         $ordered = $repo->findBy([], null, null, [], ['email' => 'ASC']);
         $emails = array_map(static fn(UserEntity $user) => $user->email, $ordered);
-        static::assertSame(['a@example.com', 'b@example.com', 'c@example.com', 'd@example.com', 'e@example.com'],
-            $emails);
+        static::assertSame(['a@example.com', 'b@example.com', 'c@example.com', 'd@example.com', 'e@example.com'], $emails);
 
         $latest = $repo->findOneBy([], [], ['email' => 'DESC']);
         static::assertSame('e@example.com', $latest->email);
@@ -1021,8 +1017,7 @@ final class EntityRepositoryTest extends TestCase
         $pageEmails = array_map(static fn(UserEntity $user) => $user->email, $page['items']);
         static::assertSame(['c@example.com', 'd@example.com'], $pageEmails);
 
-        $wherePage = $repo->findPageWhere(Condition::greaterThan('email', 'b@example.com'), 1, 2, [], ['email' => 'ASC']
-        );
+        $wherePage = $repo->findPageWhere(Condition::greaterThan('email', 'b@example.com'), 1, 2, [], ['email' => 'ASC']);
         $whereEmails = array_map(static fn(UserEntity $user) => $user->email, $wherePage['items']);
         static::assertSame(['c@example.com', 'd@example.com'], $whereEmails);
     }
@@ -1107,7 +1102,7 @@ final class EntityRepositoryTest extends TestCase
 
         $pdo->exec("INSERT INTO soft_delete_users (email, deleted_at) VALUES ('active@example.com', NULL)");
         $pdo->exec(
-            "INSERT INTO soft_delete_users (email, deleted_at) VALUES ('deleted@example.com', '2024-01-01 00:00:00')"
+            "INSERT INTO soft_delete_users (email, deleted_at) VALUES ('deleted@example.com', '2024-01-01 00:00:00')",
         );
 
         $connection = new Connection($pdo, new SqliteDialect());

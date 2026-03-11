@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
-use InvalidArgumentException;
 use arabcoders\database\Schema\Blueprint\Blueprint;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 final class TableBlueprintTest extends TestCase

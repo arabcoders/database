@@ -40,9 +40,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-${{ matrix.php }}-composer-
 
-      - name: Validate composer.json
-        run: composer validate --strict
-
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 

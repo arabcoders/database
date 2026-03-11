@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace tests\fixtures;
 
-use DateTimeInterface;
 use arabcoders\database\Attributes\Schema\Column;
 use arabcoders\database\Attributes\Schema\Table;
 use arabcoders\database\Model\BaseModel;
 use arabcoders\database\Schema\Definition\ColumnType;
+use DateTimeInterface;
 
 #[Table(name: 'stringable_entities')]
 final class StringableEntity extends BaseModel

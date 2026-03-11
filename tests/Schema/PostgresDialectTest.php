@@ -197,6 +197,6 @@ final class PostgresDialectTest extends TestCase
         ));
 
         $this->expectException(RuntimeException::class);
-        (new PostgresDialect())->createTableSql($table);
+        new PostgresDialect()->createTableSql($table);
     }
 }

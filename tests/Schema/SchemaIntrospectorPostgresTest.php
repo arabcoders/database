@@ -88,14 +88,7 @@ final class SchemaIntrospectorPostgresTest extends TestCase
         $foreignStmt = $this->mockStmt([]);
 
         $pdo->method('prepare')->willReturnCallback(
-            function (string $sql) use (
-                $tablesStmt,
-                $columnsStmt,
-                $primaryStmt,
-                $indexesStmt,
-                $exprIndexesStmt,
-                $foreignStmt,
-            ) {
+            function (string $sql) use ($tablesStmt, $columnsStmt, $primaryStmt, $indexesStmt, $exprIndexesStmt, $foreignStmt) {
                 if (str_contains($sql, 'information_schema.tables')) {
                     return $tablesStmt;
                 }
@@ -119,7 +112,7 @@ final class SchemaIntrospectorPostgresTest extends TestCase
             },
         );
 
-        $schema = (new SchemaIntrospector($pdo))->introspect();
+        $schema = new SchemaIntrospector($pdo)->introspect();
         $table = $schema->getTable('users');
 
         static::assertNotNull($table);

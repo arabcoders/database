@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
-use arabcoders\database\Schema\SchemaIntrospector;
-use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\SchemaDiffer;
+use arabcoders\database\Schema\SchemaIntrospector;
+use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\Utils\NameHelper;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -65,7 +65,9 @@ final class SchemaIntrospectorTest extends TestCase
         $schemaA = $normalizer->normalize($introspector->introspect(), $dialect);
         $schemaB = $normalizer->normalize($introspector->introspect(), $dialect);
 
-        $operations = (new SchemaDiffer())->diff($schemaA, $schemaB)->getOperations();
+        $operations = new SchemaDiffer()
+            ->diff($schemaA, $schemaB)
+            ->getOperations();
         static::assertCount(0, $operations);
 
         $table = $schemaA->getTable('widgets');
