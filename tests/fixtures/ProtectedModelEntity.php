@@ -24,8 +24,10 @@ final class ProtectedModelEntity extends BaseModel
     #[Transform(ArrayTransformer::class, nullable: true)]
     public ?array $secret = null;
 
+    public string $transient = 'transient-value';
+
     /**
      * @var array<int,string>
      */
-    protected array $protected = ['secret'];
+    protected array $_protected = ['secret'];
 }

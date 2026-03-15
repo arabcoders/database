@@ -210,6 +210,7 @@ final class BaseModelTest extends TestCase
             'name' => 'Alpha',
             'secret' => ['token' => 'abc123'],
         ]);
+        $entity->transient = 'visible';
 
         static::assertSame(
             '{"id":1,"name":"Alpha"}',

@@ -7,6 +7,7 @@ namespace arabcoders\database\Orm;
 use arabcoders\database\Connection;
 use arabcoders\database\Dialect\DialectInterface;
 use arabcoders\database\Model\ProvidesDiff;
+use arabcoders\database\Model\TracksChanges;
 use arabcoders\database\Query\Condition;
 use arabcoders\database\Query\DeleteQuery;
 use arabcoders\database\Query\Identifier;
@@ -608,6 +609,7 @@ final class EntityRepository
         $id = $this->connection->lastInsertId();
         $this->applyGeneratedId($entity, $id);
         $this->trackEntity($entity);
+        $this->syncTrackedEntity($entity);
         $this->callHook($entity, 'afterInsert');
         $this->dispatchEvent($entity, EntityEvent::POST_INSERT);
 
@@ -689,6 +691,7 @@ final class EntityRepository
         $id = $this->connection->lastInsertId();
         $this->applyGeneratedId($entity, $id);
         $this->trackEntity($entity);
+        $this->syncTrackedEntity($entity);
         $this->callHook($entity, 'afterInsert');
         $this->dispatchEvent($entity, EntityEvent::POST_INSERT);
 
@@ -772,6 +775,9 @@ final class EntityRepository
             ->where($condition);
 
         $result = $this->connection->execute($query);
+        if ($result > 0) {
+            $this->syncTrackedEntity($entity);
+        }
         $this->callHook($entity, 'afterUpdate');
         $this->dispatchEvent($entity, EntityEvent::POST_UPDATE);
 
@@ -862,6 +868,9 @@ final class EntityRepository
             ->where($condition);
 
         $result = $this->connection->execute($query);
+        if ($result > 0) {
+            $this->syncTrackedEntity($entity);
+        }
         $this->callHook($entity, 'afterUpdate');
         $this->dispatchEvent($entity, EntityEvent::POST_UPDATE);
 
@@ -2399,6 +2408,13 @@ final class EntityRepository
         }
 
         $this->identityMap[$identityKey] = $entity;
+    }
+
+    private function syncTrackedEntity(object $entity): void
+    {
+        if ($entity instanceof TracksChanges) {
+            $entity->markClean();
+        }
     }
 
     private function assertBulkEntity(object $entity): void

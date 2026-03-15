@@ -49,7 +49,7 @@ abstract class BaseModel implements JsonSerializable, ProvidesDiff, TracksChange
     /**
      * @var array<int,string>
      */
-    protected array $protected = [];
+    protected array $_protected = [];
 
     public function __construct(array $data = [], bool $isCustom = false, array $options = [])
     {
@@ -110,7 +110,7 @@ abstract class BaseModel implements JsonSerializable, ProvidesDiff, TracksChange
     public function toArray(bool $encode = false, bool $omit = true): array
     {
         $data = [];
-        $protected = $omit ? array_fill_keys($this->protected, true) : [];
+        $protected = $omit ? array_fill_keys($this->_protected, true) : [];
         foreach (static::fields() as $field) {
             if (isset($protected[$field])) {
                 continue;

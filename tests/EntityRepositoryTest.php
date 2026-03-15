@@ -196,6 +196,8 @@ final class EntityRepositoryTest extends TestCase
         $entity->secret = ['token' => 'abc123'];
 
         static::assertEquals(1, $repo->insert($entity));
+        static::assertSame([], $entity->diff());
+        static::assertSame(0, $repo->save($entity));
 
         $found = $repo->find(1);
         static::assertInstanceOf(ProtectedModelEntity::class, $found);
@@ -213,6 +215,8 @@ final class EntityRepositoryTest extends TestCase
         $found->secret = ['token' => 'xyz789'];
 
         static::assertSame(1, $repo->save($found));
+        static::assertSame([], $found->diff());
+        static::assertSame(0, $repo->save($found));
 
         $updated = $repo->find(1);
         static::assertInstanceOf(ProtectedModelEntity::class, $updated);

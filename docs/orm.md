@@ -193,11 +193,11 @@ If an entity implements `arabcoders\database\Model\ProvidesDiff`, `save()` uses 
 
 ## BaseModel Export Helpers
 
-Entities extending `arabcoders\database\Model\BaseModel` can hide selected mapped fields from array and JSON export by defining `protected array $protected = [...]`.
+Entities extending `arabcoders\database\Model\BaseModel` can hide selected mapped fields from array and JSON export by defining `protected array $_protected = [...]`.
 
 - `toArray()` omits protected fields by default.
 - `toArray(omit: false)` includes protected fields.
-- `json_encode($entity)` uses the same default export as `toArray()`.
+- `json_encode($entity)` uses the same export as `toArray()`, so models with `#[Column]` attributes serialize mapped column fields rather than every public property.
 - Protected fields still participate in change tracking; use `$ignored` when a field should also be skipped by `diff()` and `apply()`.
 
 ## Common Constraints
