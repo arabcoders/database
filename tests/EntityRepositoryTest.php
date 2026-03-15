@@ -28,6 +28,7 @@ use tests\fixtures\NoPrimaryEntity;
 use tests\fixtures\NullableUserEntity;
 use tests\fixtures\OnCreateUpdateEntity;
 use tests\fixtures\PhaseValidatedEntity;
+use tests\fixtures\ProtectedModelEntity;
 use tests\fixtures\SoftDeleteUserEntity;
 use tests\fixtures\UserEntity;
 use tests\fixtures\ValidatedProfileEntity;
@@ -177,6 +178,49 @@ final class EntityRepositoryTest extends TestCase
         static::assertInstanceOf(DiffUserEntity::class, $fresh);
         static::assertSame('first@example.com', $fresh->email);
         static::assertSame('Changed', $fresh->displayName);
+    }
+
+    public function testRepositoryCrudWithBaseModelProtectedFields(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->createSchema($pdo, [ProtectedModelEntity::class]);
+
+        $connection = new Connection($pdo, new SqliteDialect());
+        $factory = new EntityMetadataFactory();
+        $repo = new EntityRepository($connection, $factory, ProtectedModelEntity::class);
+
+        $entity = new ProtectedModelEntity();
+        $entity->id = 1;
+        $entity->name = 'Alpha';
+        $entity->secret = ['token' => 'abc123'];
+
+        static::assertEquals(1, $repo->insert($entity));
+
+        $found = $repo->find(1);
+        static::assertInstanceOf(ProtectedModelEntity::class, $found);
+        static::assertSame('Alpha', $found->name);
+        static::assertSame(['token' => 'abc123'], $found->secret);
+        static::assertSame(
+            [
+                'id' => 1,
+                'name' => 'Alpha',
+            ],
+            $found->toArray(),
+        );
+
+        $found->name = 'Updated';
+        $found->secret = ['token' => 'xyz789'];
+
+        static::assertSame(1, $repo->save($found));
+
+        $updated = $repo->find(1);
+        static::assertInstanceOf(ProtectedModelEntity::class, $updated);
+        static::assertSame('Updated', $updated->name);
+        static::assertSame(['token' => 'xyz789'], $updated->secret);
+
+        static::assertSame(1, $repo->delete($updated));
+        static::assertNull($repo->find(1));
     }
 
     public function testRepositorySupportsWhereCountAndExists(): void
