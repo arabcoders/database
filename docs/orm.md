@@ -191,6 +191,15 @@ Pass a PSR event dispatcher to `OrmManager` if you need event integration.
 
 If an entity implements `arabcoders\database\Model\ProvidesDiff`, `save()` uses `diff()` output for update payloads (unless forced full update).
 
+## BaseModel Export Helpers
+
+Entities extending `arabcoders\database\Model\BaseModel` can hide selected mapped fields from array and JSON export by defining `protected array $protected = [...]`.
+
+- `toArray()` omits protected fields by default.
+- `toArray(omit: false)` includes protected fields.
+- `json_encode($entity)` uses the same default export as `toArray()`.
+- Protected fields still participate in change tracking; use `$ignored` when a field should also be skipped by `diff()` and `apply()`.
+
 ## Common Constraints
 
 - Entities must use public mapped properties.

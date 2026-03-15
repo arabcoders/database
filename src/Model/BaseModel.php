@@ -9,6 +9,7 @@ use arabcoders\database\Attributes\Schema\Column;
 use arabcoders\database\Transformer\Transform;
 use arabcoders\database\Transformer\TransformType;
 use DateTimeInterface;
+use JsonSerializable;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionFunction;
@@ -18,7 +19,7 @@ use ReflectionProperty;
 use RuntimeException;
 use Stringable;
 
-abstract class BaseModel implements ProvidesDiff, TracksChanges
+abstract class BaseModel implements JsonSerializable, ProvidesDiff, TracksChanges
 {
     /**
      * @var array<string,mixed>
@@ -44,6 +45,11 @@ abstract class BaseModel implements ProvidesDiff, TracksChanges
      * @var array<int,string>
      */
     protected array $ignored = [];
+
+    /**
+     * @var array<int,string>
+     */
+    protected array $protected = [];
 
     public function __construct(array $data = [], bool $isCustom = false, array $options = [])
     {
@@ -101,10 +107,15 @@ abstract class BaseModel implements ProvidesDiff, TracksChanges
     /**
      * @return array<string,mixed>
      */
-    public function toArray(bool $encode = false): array
+    public function toArray(bool $encode = false, bool $omit = true): array
     {
         $data = [];
+        $protected = $omit ? array_fill_keys($this->protected, true) : [];
         foreach (static::fields() as $field) {
+            if (isset($protected[$field])) {
+                continue;
+            }
+
             if (!property_exists($this, $field)) {
                 continue;
             }
@@ -114,6 +125,11 @@ abstract class BaseModel implements ProvidesDiff, TracksChanges
         }
 
         return $data;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     /**
@@ -165,7 +181,7 @@ abstract class BaseModel implements ProvidesDiff, TracksChanges
 
     public function markClean(): void
     {
-        $this->_original = $this->toArray();
+        $this->_original = $this->toArray(omit: false);
     }
 
     /**

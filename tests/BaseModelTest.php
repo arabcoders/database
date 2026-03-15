@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use tests\fixtures\DifferEntity;
 use tests\fixtures\IgnoredModelEntity;
+use tests\fixtures\ProtectedModelEntity;
 use tests\fixtures\StringableEntity;
 use tests\fixtures\StringableValue;
 
@@ -130,5 +131,107 @@ final class BaseModelTest extends TestCase
         $entity->slug = 'dAsH';
 
         static::assertSame([], $entity->diff(columns: ['slug']));
+    }
+
+    public function testToArrayOmitsProtectedFieldsByDefault(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        static::assertSame(
+            [
+                'id' => 1,
+                'name' => 'Alpha',
+            ],
+            $entity->toArray(),
+        );
+    }
+
+    public function testToArrayCanIncludeProtectedFields(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        static::assertSame(
+            [
+                'id' => 1,
+                'name' => 'Alpha',
+                'secret' => ['token' => 'abc123'],
+            ],
+            $entity->toArray(omit: false),
+        );
+    }
+
+    public function testToArrayEncodeOmitsProtectedFieldsByDefault(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        static::assertSame(
+            [
+                'id' => 1,
+                'name' => 'Alpha',
+            ],
+            $entity->toArray(encode: true),
+        );
+    }
+
+    public function testToArrayEncodeCanIncludeProtectedFields(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        static::assertSame(
+            [
+                'id' => 1,
+                'name' => 'Alpha',
+                'secret' => '{"token":"abc123"}',
+            ],
+            $entity->toArray(encode: true, omit: false),
+        );
+    }
+
+    public function testJsonSerializeOmitsProtectedFields(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        static::assertSame(
+            '{"id":1,"name":"Alpha"}',
+            json_encode($entity, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    public function testDiffTracksProtectedFieldsWhenMarkingClean(): void
+    {
+        $entity = ProtectedModelEntity::fromRow([
+            'id' => 1,
+            'name' => 'Alpha',
+            'secret' => ['token' => 'abc123'],
+        ]);
+
+        $entity->secret = ['token' => 'xyz789'];
+
+        static::assertSame(
+            [
+                'secret' => ['token' => 'xyz789'],
+            ],
+            $entity->diff(),
+        );
     }
 }
