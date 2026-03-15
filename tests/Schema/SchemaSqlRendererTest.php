@@ -100,6 +100,122 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('DROP COLUMN', $downSql);
     }
 
+    public function testMysqlRendererDefersForeignKeysUntilAllTablesAreCreated(): void
+    {
+        $fromSchema = new SchemaDefinition();
+
+        $toSchema = new SchemaDefinition();
+
+        $foo = new TableDefinition('foo');
+        $foo->addColumn(new ColumnDefinition('id', ColumnType::Int, length: 11, autoIncrement: true));
+        $foo->addColumn(new ColumnDefinition('bar_id', ColumnType::Int, length: 11));
+        $foo->setPrimaryKey(['id']);
+        $foo->addForeignKey(new ForeignKeyDefinition('fk_foo_bar', ['bar_id'], 'bar', ['id']));
+        $toSchema->addTable($foo);
+
+        $bar = new TableDefinition('bar');
+        $bar->addColumn(new ColumnDefinition('id', ColumnType::Int, length: 11, autoIncrement: true));
+        $bar->setPrimaryKey(['id']);
+        $toSchema->addTable($bar);
+
+        $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
+        $renderer = new SchemaSqlRenderer(new MysqlDialect());
+        $sql = $renderer->render($diff);
+
+        $fooCreateSql = null;
+        foreach ($sql->up as $statement) {
+            if (!str_contains($statement, 'CREATE TABLE `foo`')) {
+                continue;
+            }
+
+            $fooCreateSql = $statement;
+            break;
+        }
+
+        static::assertNotNull($fooCreateSql);
+        static::assertStringNotContainsString('FOREIGN KEY', $fooCreateSql);
+
+        $upSql = implode("\n", $sql->up);
+        $fooCreatePos = strpos($upSql, 'CREATE TABLE `foo`');
+        $barCreatePos = strpos($upSql, 'CREATE TABLE `bar`');
+        $addConstraintPos = strpos($upSql, 'ADD CONSTRAINT `fk_foo_bar`');
+
+        static::assertIsInt($fooCreatePos);
+        static::assertIsInt($barCreatePos);
+        static::assertIsInt($addConstraintPos);
+        static::assertGreaterThan($fooCreatePos, $addConstraintPos);
+        static::assertGreaterThan($barCreatePos, $addConstraintPos);
+
+        $downSql = implode("\n", $sql->down);
+        $dropConstraintPos = strpos($downSql, 'DROP FOREIGN KEY `fk_foo_bar`');
+        $dropFooPos = strpos($downSql, 'DROP TABLE IF EXISTS `foo`');
+        $dropBarPos = strpos($downSql, 'DROP TABLE IF EXISTS `bar`');
+
+        static::assertIsInt($dropConstraintPos);
+        static::assertIsInt($dropFooPos);
+        static::assertIsInt($dropBarPos);
+        static::assertLessThan($dropFooPos, $dropConstraintPos);
+        static::assertLessThan($dropBarPos, $dropConstraintPos);
+    }
+
+    public function testPostgresRendererDefersForeignKeysUntilAllTablesAreCreated(): void
+    {
+        $fromSchema = new SchemaDefinition();
+
+        $toSchema = new SchemaDefinition();
+
+        $foo = new TableDefinition('foo');
+        $foo->addColumn(new ColumnDefinition('id', ColumnType::Int, length: 11, autoIncrement: true));
+        $foo->addColumn(new ColumnDefinition('bar_id', ColumnType::Int, length: 11));
+        $foo->setPrimaryKey(['id']);
+        $foo->addForeignKey(new ForeignKeyDefinition('fk_foo_bar', ['bar_id'], 'bar', ['id']));
+        $toSchema->addTable($foo);
+
+        $bar = new TableDefinition('bar');
+        $bar->addColumn(new ColumnDefinition('id', ColumnType::Int, length: 11, autoIncrement: true));
+        $bar->setPrimaryKey(['id']);
+        $toSchema->addTable($bar);
+
+        $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
+        $renderer = new SchemaSqlRenderer(new PostgresDialect());
+        $sql = $renderer->render($diff);
+
+        $fooCreateSql = null;
+        foreach ($sql->up as $statement) {
+            if (!str_contains($statement, 'CREATE TABLE "foo"')) {
+                continue;
+            }
+
+            $fooCreateSql = $statement;
+            break;
+        }
+
+        static::assertNotNull($fooCreateSql);
+        static::assertStringNotContainsString('FOREIGN KEY', $fooCreateSql);
+
+        $upSql = implode("\n", $sql->up);
+        $fooCreatePos = strpos($upSql, 'CREATE TABLE "foo"');
+        $barCreatePos = strpos($upSql, 'CREATE TABLE "bar"');
+        $addConstraintPos = strpos($upSql, 'ADD CONSTRAINT "fk_foo_bar"');
+
+        static::assertIsInt($fooCreatePos);
+        static::assertIsInt($barCreatePos);
+        static::assertIsInt($addConstraintPos);
+        static::assertGreaterThan($fooCreatePos, $addConstraintPos);
+        static::assertGreaterThan($barCreatePos, $addConstraintPos);
+
+        $downSql = implode("\n", $sql->down);
+        $dropConstraintPos = strpos($downSql, 'DROP CONSTRAINT "fk_foo_bar"');
+        $dropFooPos = strpos($downSql, 'DROP TABLE IF EXISTS "foo"');
+        $dropBarPos = strpos($downSql, 'DROP TABLE IF EXISTS "bar"');
+
+        static::assertIsInt($dropConstraintPos);
+        static::assertIsInt($dropFooPos);
+        static::assertIsInt($dropBarPos);
+        static::assertLessThan($dropFooPos, $dropConstraintPos);
+        static::assertLessThan($dropBarPos, $dropConstraintPos);
+    }
+
     public function testMysqlRendererHandlesRenameOperations(): void
     {
         $fromSchema = new SchemaDefinition();
