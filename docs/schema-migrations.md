@@ -143,6 +143,7 @@ The runner creates `migration_version` with a checksum column from the start. Th
 `arabcoders\database\Commands\MigrationService` wraps common operations:
 
 - `list()`
+- `probe(MigrationRequest $request)`
 - `migrate(MigrationRequest $request)`
 - `skipUpTo($token, $dryRun, $force, $repair)`
 - `buildDryRunSql($direction, $migrations)`

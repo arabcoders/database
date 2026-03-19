@@ -30,10 +30,7 @@ final class BlueprintMigrationRunner
         bool $force = false,
         bool $repair = false,
     ): array {
-        $direction = strtolower($direction);
-        if (!in_array($direction, ['up', 'down'], true)) {
-            throw new RuntimeException('Only up/down migration path available.');
-        }
+        $direction = $this->normalizeDirection($direction);
 
         $migrations = $this->loadMigrations();
 
@@ -69,6 +66,40 @@ final class BlueprintMigrationRunner
 
         $effectiveSteps = $steps > 0 ? $steps : 1;
         return $this->applyDown($migrations, true, $effectiveSteps);
+    }
+
+    /**
+     * Inspect migration state without mutating metadata tables or taking a lock.
+     *
+     * @return array{
+     *   direction:string,
+     *   needed:bool,
+     *   migrations:array<int,array{id:string,name:string,class:string,checksum:string}>,
+     *   lock:array{table:string,locked:bool,holder:?string,acquired_at:?int},
+     *   issues:array<int,string>
+     * }
+     */
+    public function probe(
+        string $direction = 'up',
+        int $steps = 0,
+        bool $force = false,
+        bool $repair = false,
+    ): array {
+        $direction = $this->normalizeDirection($direction);
+        $migrations = $this->loadMigrations();
+        $appliedVersions = $this->probeAppliedVersions();
+
+        $pending = 'up' === $direction
+            ? $this->selectUpMigrations($migrations, $appliedVersions, $steps)
+            : $this->selectDownMigrations($migrations, $appliedVersions, $steps);
+
+        return [
+            'direction' => $direction,
+            'needed' => [] !== $pending,
+            'migrations' => $pending,
+            'lock' => $this->probeLockInfo(),
+            'issues' => $this->collectProbeIssues($migrations, $direction, $force, $repair),
+        ];
     }
 
     /**
@@ -215,11 +246,7 @@ final class BlueprintMigrationRunner
             $this->assertNoGaps();
         }
 
-        $current = $this->getCurrentVersion();
-        $pending = array_values(array_filter($migrations, fn(array $m): bool => $this->compareIds((string) $m['id'], $current) > 0));
-        if ($steps > 0) {
-            $pending = array_slice($pending, 0, $steps);
-        }
+        $pending = $this->selectUpMigrations($migrations, $this->getAppliedVersions(), $steps);
 
         $ran = [];
         foreach ($pending as $migration) {
@@ -290,23 +317,20 @@ final class BlueprintMigrationRunner
         }
 
         $this->ensureVersionTable();
-        $applied = array_flip($this->getAppliedVersions());
-        $seenUnapplied = false;
-
-        foreach ($migrations as $migration) {
-            $version = (string) $migration['id'];
-            $isApplied = isset($applied[$version]);
-            if (!$isApplied) {
-                $seenUnapplied = true;
-                continue;
-            }
-
-            if ($seenUnapplied) {
-                throw new MigrationOrderException(
-                    sprintf('Out-of-order migration state detected at version %s. Resolve ordering before continuing.', $version),
-                );
-            }
+        $issue = $this->detectGapIssue($migrations, $this->getAppliedVersions());
+        if (null !== $issue) {
+            throw new MigrationOrderException($issue);
         }
+    }
+
+    private function normalizeDirection(string $direction): string
+    {
+        $direction = strtolower($direction);
+        if (!in_array($direction, ['up', 'down'], true)) {
+            throw new RuntimeException('Only up/down migration path available.');
+        }
+
+        return $direction;
     }
 
     private function runMigration(string $class, string $direction): void
@@ -492,7 +516,14 @@ final class BlueprintMigrationRunner
 
     private function getCurrentVersion(): string
     {
-        $versions = $this->getAppliedVersions();
+        return $this->currentVersionFromVersions($this->getAppliedVersions());
+    }
+
+    /**
+     * @param array<int,string> $versions
+     */
+    private function currentVersionFromVersions(array $versions): string
+    {
         if (empty($versions)) {
             return '';
         }
@@ -506,6 +537,52 @@ final class BlueprintMigrationRunner
         }
 
         return $max;
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
+     * @param array<int,string> $appliedVersions
+     * @return array<int,array{id:string,name:string,class:string,checksum:string}>
+     */
+    private function selectUpMigrations(array $migrations, array $appliedVersions, int $steps): array
+    {
+        $current = $this->currentVersionFromVersions($appliedVersions);
+        $pending = array_values(array_filter($migrations, fn(array $m): bool => $this->compareIds((string) $m['id'], $current) > 0));
+
+        if ($steps > 0) {
+            $pending = array_slice($pending, 0, $steps);
+        }
+
+        return $pending;
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
+     * @param array<int,string> $appliedVersions
+     * @return array<int,array{id:string,name:string,class:string,checksum:string}>
+     */
+    private function selectDownMigrations(array $migrations, array $appliedVersions, int $steps): array
+    {
+        if (empty($appliedVersions)) {
+            return [];
+        }
+
+        $targets = array_slice($appliedVersions, 0, $steps > 0 ? $steps : 1);
+        $byId = [];
+        foreach ($migrations as $migration) {
+            $byId[(string) $migration['id']] = $migration;
+        }
+
+        $selected = [];
+        foreach ($targets as $version) {
+            if (!isset($byId[$version])) {
+                continue;
+            }
+
+            $selected[] = $byId[$version];
+        }
+
+        return $selected;
     }
 
     /**
@@ -547,6 +624,73 @@ final class BlueprintMigrationRunner
         }
 
         return $applied;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function probeAppliedVersions(): array
+    {
+        if (!$this->tableExists($this->versionTable)) {
+            return [];
+        }
+
+        return $this->getAppliedVersions();
+    }
+
+    /**
+     * @return array<string,array{version:string,name:string,checksum:string}>
+     */
+    private function probeAppliedRowsByVersion(): array
+    {
+        if (!$this->tableExists($this->versionTable)) {
+            return [];
+        }
+
+        return $this->getAppliedRowsByVersion();
+    }
+
+    /**
+     * @return array{table:string,locked:bool,holder:?string,acquired_at:?int}
+     */
+    private function probeLockInfo(): array
+    {
+        if (!$this->tableExists($this->lockTable)) {
+            return [
+                'table' => $this->lockTable,
+                'locked' => false,
+                'holder' => null,
+                'acquired_at' => null,
+            ];
+        }
+
+        $stmt = $this->pdo->prepare("SELECT holder, acquired_at FROM {$this->lockTable} WHERE lock_key = :lock_key LIMIT 1");
+        $stmt->execute(['lock_key' => self::LOCK_KEY]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!is_array($row)) {
+            return [
+                'table' => $this->lockTable,
+                'locked' => false,
+                'holder' => null,
+                'acquired_at' => null,
+            ];
+        }
+
+        $acquiredAt = null;
+        if (isset($row['acquired_at'])) {
+            $value = (string) $row['acquired_at'];
+            if (ctype_digit($value)) {
+                $acquiredAt = (int) $value;
+            }
+        }
+
+        return [
+            'table' => $this->lockTable,
+            'locked' => true,
+            'holder' => isset($row['holder']) ? (string) $row['holder'] : null,
+            'acquired_at' => $acquiredAt,
+        ];
     }
 
     /**
@@ -605,6 +749,148 @@ final class BlueprintMigrationRunner
                 ),
             );
         }
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
+     * @return array<int,string>
+     */
+    private function collectProbeIssues(array $migrations, string $direction, bool $force, bool $repair): array
+    {
+        if ($force && !$repair) {
+            return [];
+        }
+
+        $issues = $this->collectAppliedStateIssues($migrations, $repair);
+        if ('up' === $direction) {
+            $gapIssue = $this->detectGapIssue($migrations, $this->probeAppliedVersions());
+            if (null !== $gapIssue) {
+                $issues[] = $gapIssue;
+            }
+        }
+
+        return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
+     * @return array<int,string>
+     */
+    private function collectAppliedStateIssues(array $migrations, bool $repair): array
+    {
+        $applied = $this->probeAppliedRowsByVersion();
+        if (empty($applied)) {
+            return [];
+        }
+
+        $known = [];
+        foreach ($migrations as $migration) {
+            $known[(string) $migration['id']] = $migration;
+        }
+
+        $issues = [];
+        foreach ($applied as $version => $row) {
+            if (!isset($known[$version])) {
+                $issues[] = sprintf('Applied migration version %s is missing from source files.', $version);
+                continue;
+            }
+
+            $storedChecksum = (string) ($row['checksum'] ?? '');
+            $currentChecksum = (string) $known[$version]['checksum'];
+
+            if ('' !== $storedChecksum && hash_equals($storedChecksum, $currentChecksum)) {
+                continue;
+            }
+
+            if ($repair) {
+                continue;
+            }
+
+            if ('' === $storedChecksum) {
+                $issues[] = sprintf(
+                    'Applied migration version %s has no checksum recorded. Re-run with repair to persist checksums.',
+                    $version,
+                );
+                continue;
+            }
+
+            $issues[] = sprintf(
+                'Checksum mismatch for migration version %s. Stored: %s, current: %s.',
+                $version,
+                $storedChecksum,
+                $currentChecksum,
+            );
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
+     * @param array<int,string> $appliedVersions
+     */
+    private function detectGapIssue(array $migrations, array $appliedVersions): ?string
+    {
+        if (empty($migrations) || empty($appliedVersions)) {
+            return null;
+        }
+
+        $applied = array_flip($appliedVersions);
+        $seenUnapplied = false;
+
+        foreach ($migrations as $migration) {
+            $version = (string) $migration['id'];
+            $isApplied = isset($applied[$version]);
+            if (!$isApplied) {
+                $seenUnapplied = true;
+                continue;
+            }
+
+            if ($seenUnapplied) {
+                return sprintf('Out-of-order migration state detected at version %s. Resolve ordering before continuing.', $version);
+            }
+        }
+
+        return null;
+    }
+
+    private function tableExists(string $table): bool
+    {
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        return match ($driver) {
+            'mysql' => $this->tableExistsMysql($table),
+            'pgsql' => $this->tableExistsPostgres($table),
+            default => $this->tableExistsSqlite($table),
+        };
+    }
+
+    private function tableExistsMysql(string $table): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1',
+        );
+        $stmt->execute(['table' => $table]);
+
+        return false !== $stmt->fetchColumn();
+    }
+
+    private function tableExistsPostgres(string $table): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = :table LIMIT 1',
+        );
+        $stmt->execute(['table' => $table]);
+
+        return false !== $stmt->fetchColumn();
+    }
+
+    private function tableExistsSqlite(string $table): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :table LIMIT 1");
+        $stmt->execute(['table' => $table]);
+
+        return false !== $stmt->fetchColumn();
     }
 
     private function checksumForClass(string $class): string

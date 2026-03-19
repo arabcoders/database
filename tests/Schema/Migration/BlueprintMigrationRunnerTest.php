@@ -110,6 +110,44 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('up', false);
     }
 
+    public function testRunnerProbeReturnsPendingWithoutCreatingMetadataTables(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
+
+        $result = $runner->probe('up');
+
+        static::assertSame('up', $result['direction']);
+        static::assertTrue($result['needed']);
+        static::assertCount(1, $result['migrations']);
+        static::assertFalse((bool) $result['lock']['locked']);
+        static::assertSame([], $result['issues']);
+        static::assertFalse($this->tableExists($pdo, 'migration_version'));
+        static::assertFalse($this->tableExists($pdo, 'migration_lock'));
+    }
+
+    public function testRunnerProbeReturnsCurrentLockStateWithoutMutatingVersionTable(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
+
+        $pdo->exec('CREATE TABLE migration_lock (lock_key TEXT PRIMARY KEY, holder TEXT NOT NULL, acquired_at INTEGER NOT NULL)');
+        $pdo->exec("INSERT INTO migration_lock (lock_key, holder, acquired_at) VALUES ('schema_migration', 'other-runner', 1)");
+
+        $result = $runner->probe('up');
+
+        static::assertTrue((bool) $result['lock']['locked']);
+        static::assertSame('other-runner', $result['lock']['holder']);
+        static::assertSame(1, $result['lock']['acquired_at']);
+        static::assertFalse($this->tableExists($pdo, 'migration_version'));
+    }
+
     private function tableExists(PDO $pdo, string $name): bool
     {
         $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = :name");

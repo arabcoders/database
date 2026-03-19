@@ -32,6 +32,24 @@ final class MigrationService
         return new MigrationListResult($migrations, $lock);
     }
 
+    public function probe(MigrationRequest $request): MigrationProbeResult
+    {
+        $probe = $this->runner()->probe(
+            $request->direction,
+            $request->steps,
+            $request->force,
+            $request->repair,
+        );
+
+        return new MigrationProbeResult(
+            $probe['direction'],
+            $probe['needed'],
+            $probe['migrations'],
+            $probe['lock'],
+            $probe['issues'],
+        );
+    }
+
     public function skipUpTo(
         #[\SensitiveParameter]
         string $token,

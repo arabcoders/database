@@ -70,6 +70,48 @@ final class MigrationServiceTest extends TestCase
         static::assertSame(123, $result->lock['acquired_at']);
     }
 
+    public function testProbeExposesPendingMigrationsWithoutCreatingMetadataTables(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $result = $service->probe(new MigrationRequest(direction: 'up', dryRun: false));
+
+        static::assertSame('up', $result->direction);
+        static::assertTrue($result->needed);
+        static::assertCount(1, $result->migrations);
+        static::assertFalse((bool) $result->lock['locked']);
+        static::assertSame([], $result->issues);
+        static::assertFalse($this->tableExists($pdo, 'migration_version'));
+        static::assertFalse($this->tableExists($pdo, 'migration_lock'));
+    }
+
+    public function testProbeReportsChecksumIssuesWithoutThrowing(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service->migrate(new MigrationRequest(direction: 'up', dryRun: false));
+
+        $pdo->exec("UPDATE migration_version SET checksum = 'broken' WHERE version = '1'");
+
+        $result = $service->probe(new MigrationRequest(direction: 'up', dryRun: false));
+
+        static::assertFalse($result->needed);
+        static::assertCount(1, $result->issues);
+        static::assertStringContainsString('Checksum mismatch for migration version 1. Stored: broken, current: ', $result->issues[0]);
+    }
+
+    private function tableExists(PDO $pdo, string $name): bool
+    {
+        $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = :name");
+        $stmt->execute(['name' => $name]);
+
+        return false !== $stmt->fetchColumn();
+    }
+
     private function migrationFixturePath(): string
     {
         $reflection = new ReflectionClass(TestWidgetsMigration::class);
