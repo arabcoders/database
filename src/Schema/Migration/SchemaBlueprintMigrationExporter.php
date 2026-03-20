@@ -155,7 +155,7 @@ final class SchemaBlueprintMigrationExporter
                 $lines = array_merge($lines, $this->renderTableBlock(
                     $operation->table,
                     [
-                        '$table->dropIndex(' . $this->exportValue($operation->index->name) . ');',
+                        $this->renderDropIndex($operation->index),
                     ],
                     $indentLevel,
                 ));
@@ -443,6 +443,36 @@ final class SchemaBlueprintMigrationExporter
         }
 
         return '$table->' . $method . '(' . implode(', ', $args) . ');';
+    }
+
+    private function renderDropIndex(IndexDefinition $index): string
+    {
+        $args = [
+            $this->exportValue($index->name),
+            'columns: ' . $this->exportColumns($index->columns),
+        ];
+
+        if ($index->unique) {
+            $args[] = 'unique: true';
+        }
+
+        if ('index' !== strtolower($index->type)) {
+            $args[] = 'type: ' . $this->exportValue($index->type);
+        }
+
+        if ([] !== $index->algorithm) {
+            $args[] = 'algorithm: ' . $this->exportValue($index->algorithm);
+        }
+
+        if (null !== $index->where) {
+            $args[] = 'where: ' . $this->exportValue($index->where);
+        }
+
+        if (null !== $index->expression) {
+            $args[] = 'expression: ' . $this->exportValue($index->expression);
+        }
+
+        return '$table->dropIndex(' . implode(', ', $args) . ');';
     }
 
     private function isAutoIndexName(string $table, IndexDefinition $index): bool

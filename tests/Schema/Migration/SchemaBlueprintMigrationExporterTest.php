@@ -12,6 +12,7 @@ use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use arabcoders\database\Schema\Operation\CreateTableOperation;
+use arabcoders\database\Schema\Operation\DropIndexOperation;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaBlueprintMigrationExporterTest extends TestCase
@@ -50,5 +51,37 @@ final class SchemaBlueprintMigrationExporterTest extends TestCase
         static::assertStringContainsString('->check(', $content);
         static::assertStringContainsString('->generated(', $content);
         static::assertStringContainsString('expression: ', $content);
+    }
+
+    public function testExporterPreservesDroppedIndexMetadata(): void
+    {
+        $from = new SchemaDefinition();
+        $to = new SchemaDefinition();
+
+        $plan = new SchemaMigrationPlan($from, $to, [
+            new DropIndexOperation('widgets', new IndexDefinition(
+                'idx_widgets_name',
+                ['name'],
+                unique: true,
+                algorithm: ['pgsql' => 'hash'],
+                where: 'name IS NOT NULL',
+            )),
+            new DropIndexOperation('widgets', new IndexDefinition(
+                'idx_widgets_expr',
+                [],
+                expression: '(lower(name))',
+            )),
+        ]);
+
+        $content = new SchemaBlueprintMigrationExporter()->export($plan, 'Migration_2_widgets', '2', 'widgets');
+
+        static::assertStringContainsString(
+            "\$table->dropIndex('idx_widgets_name', columns: 'name', unique: true, algorithm: ['pgsql' => 'hash'], where: 'name IS NOT NULL');",
+            $content,
+        );
+        static::assertStringContainsString(
+            "\$table->dropIndex('idx_widgets_expr', columns: [], expression: '(lower(name))');",
+            $content,
+        );
     }
 }

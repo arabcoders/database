@@ -395,4 +395,22 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('CREATE UNIQUE INDEX', $upSql);
         static::assertStringContainsString('USING BTREE', $upSql);
     }
+
+    public function testRendererCanRollbackDroppedIndexesWhenBlueprintKeepsMetadata(): void
+    {
+        $blueprint = new Blueprint();
+        $blueprint->table('widgets', static function ($table): void {
+            $table->dropIndex(name: 'idx_widgets_name', columns: ['name']);
+        });
+
+        $diff = $blueprint->toDiff();
+
+        foreach ([new MysqlDialect(), new SqliteDialect(), new PostgresDialect()] as $dialect) {
+            $sql = new SchemaSqlRenderer($dialect)->render($diff);
+
+            static::assertNotEmpty($sql->up);
+            static::assertNotEmpty($sql->down);
+            static::assertStringContainsString('idx_widgets_name', implode("\n", $sql->down));
+        }
+    }
 }

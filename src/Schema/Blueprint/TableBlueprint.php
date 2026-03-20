@@ -173,21 +173,38 @@ final class TableBlueprint
     /**
      * Execute drop index for this table blueprint.
      * @param string $name Name.
+     * @param array|string $columns Columns.
+     * @param bool $unique Unique.
+     * @param string $type Type.
+     * @param array $algorithm Algorithm.
+     * @param ?string $where Where.
+     * @param ?string $expression Expression.
      * @return void
      */
 
-    public function dropIndex(string $name): void
-    {
+    public function dropIndex(
+        string $name,
+        array|string $columns = [],
+        bool $unique = false,
+        string $type = 'index',
+        array $algorithm = [],
+        ?string $where = null,
+        ?string $expression = null,
+    ): void {
         if (self::MODE_ALTER !== $this->mode) {
             return;
         }
 
+        $columns = $this->normalizeColumns($columns);
+
         $this->schema->addOperation(new DropIndexOperation($this->table, new IndexDefinition(
             name: $name,
-            columns: [],
-            unique: false,
-            type: 'index',
-            algorithm: [],
+            columns: $columns,
+            unique: $unique,
+            type: $type,
+            algorithm: $algorithm,
+            where: $where,
+            expression: $expression,
         )));
     }
 
