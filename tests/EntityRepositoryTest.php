@@ -22,6 +22,7 @@ use tests\fixtures\BlogProfileEntity;
 use tests\fixtures\BlogTagEntity;
 use tests\fixtures\BlogUserEntity;
 use tests\fixtures\DiffUserEntity;
+use tests\fixtures\DirtyAwareUserEntity;
 use tests\fixtures\MisconfiguredRelationUserEntity;
 use tests\fixtures\MultiKeyEntity;
 use tests\fixtures\NoPrimaryEntity;
@@ -178,6 +179,38 @@ final class EntityRepositoryTest extends TestCase
         static::assertInstanceOf(DiffUserEntity::class, $fresh);
         static::assertSame('first@example.com', $fresh->email);
         static::assertSame('Changed', $fresh->displayName);
+    }
+
+    public function testRepositoryPreservesDirtyTrackedFieldsDuringIdentityMapRehydrationWhenEntityOptsIn(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->createSchema($pdo, [DirtyAwareUserEntity::class]);
+
+        $connection = new Connection($pdo, new SqliteDialect());
+        $factory = new EntityMetadataFactory();
+        $repo = new EntityRepository($connection, $factory, DirtyAwareUserEntity::class);
+
+        $entity = new DirtyAwareUserEntity();
+        $entity->email = 'first@example.com';
+        $entity->displayName = 'First';
+
+        $repo->insert($entity);
+
+        $entity->displayName = 'Updated in memory';
+
+        $same = $repo->findOneBy(['email' => 'first@example.com']);
+
+        static::assertSame($entity, $same);
+        static::assertSame('Updated in memory', $entity->displayName);
+        static::assertSame(['displayName' => 'Updated in memory'], $entity->diff());
+        static::assertSame(1, $repo->save($entity));
+
+        $freshRepo = new EntityRepository($connection, $factory, DirtyAwareUserEntity::class);
+        $fresh = $freshRepo->find($entity->id);
+
+        static::assertInstanceOf(DirtyAwareUserEntity::class, $fresh);
+        static::assertSame('Updated in memory', $fresh->displayName);
     }
 
     public function testRepositoryCrudWithBaseModelProtectedFields(): void

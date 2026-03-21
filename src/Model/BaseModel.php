@@ -19,7 +19,7 @@ use ReflectionProperty;
 use RuntimeException;
 use Stringable;
 
-abstract class BaseModel implements JsonSerializable, ProvidesDiff, TracksChanges
+abstract class BaseModel implements JsonSerializable, ProvidesDiff, PreservesDirtyStateOnHydrate
 {
     /**
      * @var array<string,mixed>
@@ -182,6 +182,48 @@ abstract class BaseModel implements JsonSerializable, ProvidesDiff, TracksChange
     public function markClean(): void
     {
         $this->_original = $this->toArray(omit: false);
+    }
+
+    public function preserveDirtyOnHydrate(): bool
+    {
+        return false;
+    }
+
+    public function dirtyFields(): array
+    {
+        if ([] === $this->_original) {
+            return [];
+        }
+
+        return array_keys($this->diff());
+    }
+
+    public function markCleanFields(array $fields): void
+    {
+        if (empty($fields)) {
+            return;
+        }
+
+        if ([] === $this->_original) {
+            $this->markClean();
+
+            return;
+        }
+
+        $mappedFields = array_fill_keys(static::fields(), true);
+        $uniqueFields = [];
+
+        foreach ($fields as $field) {
+            if (!is_string($field) || !isset($mappedFields[$field]) || !property_exists($this, $field)) {
+                continue;
+            }
+
+            $uniqueFields[$field] = true;
+        }
+
+        foreach (array_keys($uniqueFields) as $field) {
+            $this->_original[$field] = $this->{$field} ?? null;
+        }
     }
 
     /**

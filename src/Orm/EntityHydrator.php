@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Orm;
 
+use arabcoders\database\Model\PreservesDirtyStateOnHydrate;
 use arabcoders\database\Model\TracksChanges;
 use arabcoders\database\Transformer\TransformType;
 use RuntimeException;
@@ -28,18 +29,30 @@ final class EntityHydrator
      */
     public function hydrateInto(object $entity, EntityMetadata $metadata, array $row): object
     {
+        $preserveDirty = $entity instanceof PreservesDirtyStateOnHydrate && $entity->preserveDirtyOnHydrate();
+        $dirtyFields = $preserveDirty ? array_fill_keys($entity->dirtyFields(), true) : [];
+        $refreshedFields = [];
+
         foreach ($row as $column => $value) {
             $property = $metadata->propertyFor($column) ?? $column;
             if (property_exists($entity, $property)) {
+                if ($preserveDirty && isset($dirtyFields[$property])) {
+                    continue;
+                }
+
                 $transform = $metadata->transformFor($property);
                 if (null !== $transform) {
                     $value = $transform(TransformType::DECODE, $value);
                 }
+
                 $entity->{$property} = $value;
+                $refreshedFields[$property] = true;
             }
         }
 
-        if ($entity instanceof TracksChanges) {
+        if ($preserveDirty) {
+            $entity->markCleanFields(array_keys($refreshedFields));
+        } elseif ($entity instanceof TracksChanges) {
             $entity->markClean();
         }
 
