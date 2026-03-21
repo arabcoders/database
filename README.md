@@ -1,40 +1,42 @@
 # Database Package
 
-This directory contains a standalone database toolkit built around explicit SQL generation.
+`arabcoders/database` is a standalone PHP database package for applications that want predictable PDO access, explicit SQL generation, and optional ORM, schema, and seeding tools.
 
-The package is split into small modules that you can adopt independently:
+You can use the whole package or adopt only the parts you need:
 
-- `Connection` and `ConnectionManager` for execution, transactions, and retries.
-- Query builder (`Query/*`) for DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
-- ORM (`Orm/*`) for attribute-based entity metadata and repositories.
-- Schema and migration tooling (`Schema/*`).
-- Seeder tooling (`Seeder/*`, `Commands/SeederService.php`).
+- `Connection` and `ConnectionManager` handle execution, transactions, retries, and multi-connection setups.
+- `Query/*` provides builders for `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements.
+- `Orm/*` maps attribute-based entities to repositories and relation loaders.
+- `Schema/*` covers schema definitions, introspection, diffing, and SQL rendering.
+- `Seeder/*` and `Commands/SeederService.php` support seeder discovery and execution.
 
 ## Core Principles
 
-- Explicit behavior first. Query objects compile to SQL and bound params.
-- No hidden ORM magic. Repositories map public properties and run known operations.
-- Dialect-aware output. SQL generation is adapted per database driver.
-- Composable modules. Use only query builder, only schema tools, or the whole stack.
+- The package favors explicit behavior. Query objects compile into SQL and bound parameters you can inspect.
+- Entities remain regular PHP objects. Repositories hydrate public mapped properties and run named operations.
+- SQL generation stays dialect-aware so the same API can target MySQL, PostgreSQL, or SQLite.
+- Each module can be used independently, so you do not need to adopt the full stack.
 
 ## Package Layout
 
-- `Attributes/` - attributes for schema, ORM, migrations, and seeders.
-- `Commands/` - service-level APIs for migration and seeder workflows.
-- `Dialect/` - DML dialects used by query builder and `Connection`.
-- `Orm/` - metadata factory, repositories, relation loading, relation writes.
-- `Query/` - query objects, conditions, compiler, parameter bag.
-- `Schema/` - schema registry, introspection, diffing, SQL rendering, blueprints.
-- `Seeder/` - seeder registry, dependency resolver, executor, execution history.
-- `Transformer/` - value transform attributes/helpers used by ORM hydration/writes.
-- `Validator/` - validation attributes/helpers used by ORM.
+- `Attributes/` contains attributes for schema, ORM, migrations, and seeders.
+- `Commands/` contains higher-level services for migration and seeder workflows.
+- `Dialect/` contains DML dialects used by the query builder and `Connection`.
+- `Orm/` contains metadata factories, repositories, relation loading, and relation writes.
+- `Query/` contains query objects, conditions, compilers, and parameter handling.
+- `Schema/` contains schema registries, introspection, diffing, SQL rendering, and blueprints.
+- `Seeder/` contains seeder registries, dependency resolution, execution, and history tracking.
+- `Transformer/` contains value transform helpers used during ORM reads and writes.
+- `Validator/` contains validation attributes and rules used by the ORM.
 
 ## Requirements
 
-- PHP 8.4+
-- PDO driver: `mysql`, `pgsql`, or `sqlite`
+- PHP 8.4+.
+- A PDO driver for `mysql`, `pgsql`, or `sqlite`.
 
 ## Quick Start
+
+The example below creates a connection, runs a query, and sets up an `OrmManager` for repository access.
 
 ```php
 <?php
@@ -63,7 +65,7 @@ $connections = new ConnectionManager();
 $connections->register('default', $connection);
 
 $orm = new OrmManager($connections);
-// Alternative for single connection use cases:
+// If you only have one connection:
 // $orm = OrmManager::fromConnection($connection);
 ```
 
@@ -75,11 +77,11 @@ $orm = new OrmManager($connections);
 - Seeding: `docs/seeding.md`
 - Dialects and extension points: `docs/dialects.md`
 
-## Namespace Notes
+## Namespaces
 
-Keep these namespaces together when consuming the package:
+When integrating the package, you will usually work with these namespaces:
 
 - `arabcoders\database\*`
 - `arabcoders\database\Attributes\*`
 
-`SchemaRegistry`, `MigrationRegistry`, and `SeederRegistry` rely on `arabcoders\database\Scanner\Attributes` for attribute discovery.
+`SchemaRegistry`, `MigrationRegistry`, and `SeederRegistry` use `arabcoders\database\Scanner\Attributes` for attribute discovery.

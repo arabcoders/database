@@ -1,18 +1,18 @@
 # Schema and Migrations
 
-Schema tooling is built around declarative model attributes and explicit diff operations.
+The schema tooling is built around declarative model attributes and explicit diff operations. It gives you a predictable way to describe tables in PHP, compare them with a live database, and render the SQL needed to move between the two states.
 
-Primary modules:
+## Main Components
 
-- `SchemaRegistry` - builds target schema from model attributes.
-- `SchemaIntrospector` - reads current schema from a live database.
-- `SchemaDiffer` - computes operation diff.
-- `SchemaSqlRenderer` - renders SQL (`up` / `down`) from operations.
-- `SchemaGenerator` - convenience helpers for model-backed schema SQL.
+- `SchemaRegistry` builds the target schema from model attributes.
+- `SchemaIntrospector` reads the current schema from a live database.
+- `SchemaDiffer` computes the operation diff between two schemas.
+- `SchemaSqlRenderer` renders `up` and `down` SQL from those operations.
+- `SchemaGenerator` provides convenience helpers for model-backed schema SQL.
 
 ## Schema Attributes
 
-Model classes can define schema with:
+Model classes can describe schema with these attributes:
 
 - `arabcoders\database\Attributes\Schema\Table`
 - `arabcoders\database\Attributes\Schema\Column`
@@ -20,12 +20,12 @@ Model classes can define schema with:
 - `arabcoders\database\Attributes\Schema\Unique`
 - `arabcoders\database\Attributes\Schema\ForeignKey`
 
-Important rename fields:
+When you are renaming an existing table or column, set the previous name in the attribute metadata:
 
 - `Table(prevName: 'old_table')`
 - `Column(prevName: 'old_column')`
 
-Those are used by `SchemaDiffer` to emit rename operations rather than drop/recreate where possible.
+`SchemaDiffer` uses that information to emit rename operations instead of falling back to drop-and-recreate where possible.
 
 ## Generating SQL From Models
 
@@ -34,10 +34,10 @@ Those are used by `SchemaDiffer` to emit rename operations rather than drop/recr
 
 declare(strict_types=1);
 
-use arabcoders\database\Schema\SchemaGenerator;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
-use Domain\Model\Todo;
-use Domain\Model\User;
+use arabcoders\database\Schema\SchemaGenerator;
+use Example\Model\Todo;
+use Example\Model\User;
 
 $dialect = SchemaDialectFactory::fromDriverName('pgsql');
 $sql = SchemaGenerator::generateSchemas([
@@ -48,52 +48,54 @@ $sql = SchemaGenerator::generateSchemas([
 // $sql->up and $sql->down are arrays of SQL statements.
 ```
 
-`SchemaGenerator` also exposes:
+`SchemaGenerator` also provides:
 
 - `tableDefinition($modelClass)`
 - `schemaDefinition($modelClasses)`
 
-## Diff Pipeline
+## Diff Workflow
 
-Typical programmatic flow:
+A typical workflow looks like this:
 
-1. Build model schema via `SchemaRegistry`.
-2. Introspect live schema via `SchemaIntrospector`.
-3. Normalize both with `SchemaNormalizer`.
-4. Diff with `SchemaDiffer`.
+1. Build the model schema with `SchemaRegistry`.
+2. Introspect the live schema with `SchemaIntrospector`.
+3. Normalize both schemas with `SchemaNormalizer`.
+4. Compare them with `SchemaDiffer`.
 5. Render SQL with `SchemaSqlRenderer`.
 
-`SchemaSqlRenderer` orders operations to minimize constraint issues and builds reversible `MigrationSql` output.
+`SchemaSqlRenderer` orders operations to reduce constraint conflicts and returns a reversible `MigrationSql` object.
 
 ## SQLite Rebuild Behavior
 
-SQLite has limited `ALTER TABLE` support.
+SQLite has limited `ALTER TABLE` support. When a change cannot be expressed safely with native alter operations, the renderer switches to a table rebuild strategy through `RebuildTableOperation`.
 
-When needed, renderer promotes incompatible operation sets to a table rebuild strategy (`RebuildTableOperation`) that:
+That rebuild process:
 
-- renames old table
-- creates new table
-- copies shared columns
-- drops old table
-- recreates indexes
+- Renames the old table.
+- Creates the new table.
+- Copies shared columns.
+- Drops the old table.
+- Recreates indexes.
 
 ## Blueprint API
 
-Migrations are written against `arabcoders\database\Schema\Blueprint\Blueprint`.
+Blueprint-based migrations use `arabcoders\database\Schema\Blueprint\Blueprint`.
 
-Common methods:
+Common methods include:
 
 - `createTable($name, fn(TableBlueprint $table) => ...)`
 - `table($name, fn(TableBlueprint $table) => ...)`
 - `dropTable($name)`
 - `renameTable($from, $to)`
 
-`TableBlueprint` supports column, index, foreign key, and primary key operations.
+`TableBlueprint` handles column, index, foreign key, and primary key operations.
 
 ## Migration Classes
 
-- Attribute: `arabcoders\database\Attributes\Migration`
-- Base class: `arabcoders\database\Schema\Migration\SchemaBlueprintMigration`
+Migration classes use:
+
+- The `arabcoders\database\Attributes\Migration` attribute.
+- The `arabcoders\database\Schema\Migration\SchemaBlueprintMigration` base class.
 
 ```php
 <?php
@@ -122,25 +124,24 @@ final class Migration_260101120000 extends SchemaBlueprintMigration
 
 ## Migration Registry and Runner
 
-- `MigrationRegistry` discovers migration classes by attribute.
-- `BlueprintMigrationRunner` executes up/down plans.
+`MigrationRegistry` discovers migration classes by attribute, and `BlueprintMigrationRunner` executes `up` and `down` plans.
 
-Runner behavior includes:
+The runner:
 
-- ensures `migration_version` exists
-- ensures `migration_lock` exists
-- lock acquisition to avoid concurrent runners
-- checks migration ordering gaps
-- records migration checksums
-- validates checksum drift and supports repair mode
+- Ensures `migration_version` exists.
+- Ensures `migration_lock` exists.
+- Acquires a lock to avoid concurrent migration runs.
+- Checks for gaps in migration ordering.
+- Records migration checksums.
+- Validates checksum drift and supports repair mode.
 
-## migration_version Table
+## `migration_version` Table
 
-The runner creates `migration_version` with a checksum column from the start. There is no backward-compatibility schema patching path in the runner.
+The runner creates `migration_version` with a checksum column from the beginning. There is no backward-compatibility patch path for older versions of that table inside the runner.
 
 ## Command Services
 
-`arabcoders\database\Commands\MigrationService` wraps common operations:
+`arabcoders\database\Commands\MigrationService` wraps common migration workflows:
 
 - `list()`
 - `probe(MigrationRequest $request)`
@@ -148,26 +149,26 @@ The runner creates `migration_version` with a checksum column from the start. Th
 - `skipUpTo($token, $dryRun, $force, $repair)`
 - `buildDryRunSql($direction, $migrations)`
 
-Supporting builders:
+Supporting builders include:
 
-- `MigrationCreator` - create blank/autogen migration drafts
-- `MigrationSquasher` - squash migration ranges
+- `MigrationCreator` for blank or autogenerated migration drafts.
+- `MigrationSquasher` for squashing migration ranges.
 
 ## Autogenerated Migrations
 
-`MigrationCreator::createAutogen(...)` can build migration drafts from model-vs-db diff.
+`MigrationCreator::createAutogen(...)` can build a migration draft by diffing your model schema against the live database.
 
-Options include:
+Available options include:
 
-- ignored tables
-- include/exclude orphan drops
-- dry-run SQL preview
+- Ignored tables.
+- Inclusion or exclusion of orphan drops.
+- Dry-run SQL preview output.
 
-Rendered files are generated through `MigrationFileRenderer` and `SchemaBlueprintMigrationExporter`.
+Rendered files are produced through `MigrationFileRenderer` and `SchemaBlueprintMigrationExporter`.
 
 ## Common Exceptions
 
-Runner-specific exceptions in `Schema/Migration` include:
+Runner-specific exceptions under `Schema/Migration` include:
 
 - `MigrationOrderException`
 - `MigrationLockException`
@@ -175,4 +176,4 @@ Runner-specific exceptions in `Schema/Migration` include:
 - `MigrationChecksumMismatchException`
 - `MigrationStateException`
 
-Handle these explicitly in CLI or deployment orchestration when needed.
+Catch these in your CLI or deployment tooling when you want clearer error handling.

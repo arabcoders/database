@@ -1,21 +1,18 @@
 # Query Builder
 
-The query builder composes SQL through immutable-like fluent objects that compile into:
+Use the query builder when you want explicit SQL generation without assembling query strings by hand. Query objects describe the statement you want, and the connection layer compiles them into SQL plus a bound parameter map.
 
-- SQL string
-- bound parameter map
-
-All query objects implement `arabcoders\database\Query\QueryInterface`.
+All query objects implement `arabcoders\database\Query\QueryInterface`. Execute them through `Connection`, which handles prepared statements and parameter binding.
 
 ## Main Types
+
+The main query builder types are:
 
 - `SelectQuery`
 - `InsertQuery`
 - `UpdateQuery`
 - `DeleteQuery`
 - `Condition`
-
-`Connection` executes query objects and handles prepared statements/binding.
 
 ## Basic Usage
 
@@ -45,96 +42,91 @@ $rows = $db->fetchAll($query);
 
 `SelectQuery` supports:
 
-- projection (`select`, `selectAs`, `selectRaw`, aggregates)
-- `JOIN` and `joinSubquery`
-- CTEs with `with(name, query, recursive: bool)`
-- set operations (`union`, `unionAll`, `intersect`, `except`)
-- `where`, `groupBy`, `having`, `orderBy`, `limit`
-- lock clauses (`forUpdate`, `lockInShareMode`)
+- Projections through `select`, `selectAs`, `selectRaw`, and aggregate helpers.
+- `JOIN` clauses and `joinSubquery(...)`.
+- CTEs with `with(name, query, recursive: bool)`.
+- Set operations such as `union`, `unionAll`, `intersect`, and `except`.
+- `where`, `groupBy`, `having`, `orderBy`, and `limit` clauses.
+- Lock clauses such as `forUpdate()` and `lockInShareMode()`.
 
-Notes:
+A few database-specific rules apply:
 
 - `INTERSECT` and `EXCEPT` are rejected for MySQL.
-- lock clauses are dialect-specific:
-  - `FOR UPDATE`: MySQL and PostgreSQL
-  - `LOCK IN SHARE MODE`: MySQL only
-- subqueries cannot include `WITH` (enforced by `QueryCompiler`).
+- Lock clauses are dialect-specific: `FOR UPDATE` works on MySQL and PostgreSQL, while `LOCK IN SHARE MODE` is MySQL-only.
+- Subqueries cannot include `WITH`; this is enforced by `QueryCompiler`.
 
 ## Condition API
 
-`Condition` powers `WHERE`, `HAVING`, and join predicates.
+`Condition` builds `WHERE`, `HAVING`, and join predicates.
 
-Core builders:
+Common builders include:
 
-- comparisons: `equals`, `notEquals`, `greaterThan`, `between`, etc.
-- null checks: `isNull`, `isNotNull`
-- set checks: `in`, `notIn`
-- pattern checks: `like`, `iLike`, `startsWith`, `endsWith`, `regex`
-- boolean composition: `and`, `or`, `not`
-- column comparisons: `columnEquals`, `columnCompare`
-- subqueries: `exists`, `inSubquery`, `notExists`, `notInSubquery`
+- Comparison helpers such as `equals`, `notEquals`, `greaterThan`, and `between`.
+- Null checks such as `isNull` and `isNotNull`.
+- Set checks such as `in` and `notIn`.
+- Pattern helpers such as `like`, `iLike`, `startsWith`, `endsWith`, and `regex`.
+- Boolean composition through `and`, `or`, and `not`.
+- Column comparisons such as `columnEquals` and `columnCompare`.
+- Subquery helpers such as `exists`, `inSubquery`, `notExists`, and `notInSubquery`.
 
-Advanced builders:
+Advanced builders include:
 
-- JSON path/value operations (`jsonPath*`, `jsonArray*`)
-- vector distance operations for PostgreSQL (`vectorCosineDistance`, `vectorL2Distance`, `vectorInnerProductDistance`)
-- full text predicate (`fullText`)
+- JSON path and array predicates (`jsonPath*`, `jsonArray*`).
+- PostgreSQL vector distance helpers (`vectorCosineDistance`, `vectorL2Distance`, `vectorInnerProductDistance`).
+- Full-text search predicates through `fullText`.
 
-Dialect behavior:
+Dialect behavior differs in a few places:
 
-- `iLike` uses native `ILIKE` in PostgreSQL and `LOWER(...) LIKE LOWER(...)` fallback otherwise.
-- regex operators are generated per dialect.
-- vector predicates throw unless dialect is PostgreSQL.
+- `iLike` uses native `ILIKE` on PostgreSQL and falls back to `LOWER(...) LIKE LOWER(...)` elsewhere.
+- Regex operators are rendered per dialect.
+- Vector predicates throw unless the active dialect is PostgreSQL.
 
 ## InsertQuery
 
-Insert modes:
+`InsertQuery` supports several write styles:
 
-- single row: `values([...])`
-- multi row: `rows([[...], [...]])`
-- `INSERT ... SELECT`: `fromSelect([...], $query)`
+- Single-row inserts with `values([...])`.
+- Multi-row inserts with `rows([[...], [...]])`.
+- `INSERT ... SELECT` statements with `fromSelect([...], $query)`.
 
-Upsert options:
+Upsert helpers include:
 
 - `onConflict([...])`
-- `onConflictConstraint('constraint_name')` (PostgreSQL)
+- `onConflictConstraint('constraint_name')` for PostgreSQL
 - `doUpdate([...])`
 - `doNothing()`
-- shortcut: `upsert($updates, $conflictColumns, $constraint)`
+- `upsert($updates, $conflictColumns, $constraint)` as a shortcut
 
-Use `UpsertValue::inserted('column')` in update payloads when you need the inserted value expression.
+Use `UpsertValue::inserted('column')` in an upsert update payload when you need the inserted-value expression.
 
-Returning:
-
-- `returning([...])` is available only if the dialect reports support.
+`returning([...])` is available only when the active dialect reports support.
 
 ## UpdateQuery and DeleteQuery
 
-Both require an explicit `where(...)`; missing predicates throw a runtime error.
+Both `UpdateQuery` and `DeleteQuery` require an explicit `where(...)`. If you omit the predicate, the package throws a runtime error instead of generating an unrestricted statement.
 
-Supported features:
+Supported features include:
 
-- CTEs (`with`)
-- joins (dialect-limited)
-- `orderBy` and `limit`
-- optional `returning`
+- CTEs through `with(...)`
+- Join support where the active dialect allows it
+- `orderBy(...)` and `limit(...)`
+- Optional `returning(...)`
 
-Join support details:
+Join behavior differs by database:
 
-- MySQL: join syntax supported directly.
-- PostgreSQL: translated into `FROM`/`USING` forms with constraints.
-- SQLite: joined update/delete are not supported.
+- MySQL supports joined update and delete syntax directly.
+- PostgreSQL translates joined operations into `FROM` and `USING` forms where possible.
+- SQLite does not support joined updates or deletes.
 
 ## Raw SQL Fragments
 
-- `RawExpression` can be used in insert/update payloads.
-- `Identifier` safely quotes identifiers (including dotted names and aliases).
+`RawExpression` can be used in insert and update payloads, and `Identifier` safely quotes identifiers, including dotted names and aliases.
 
-Use raw expressions intentionally and keep values parameterized when possible.
+Use raw SQL intentionally and keep user-provided values parameterized whenever possible.
 
 ## Query Macros
 
-All query classes use `Macroable`.
+All query classes use `Macroable`, so you can add project-specific helpers.
 
 ```php
 <?php
@@ -156,11 +148,11 @@ Query classes implement `CacheableQueryInterface` and expose:
 - `cacheKey()`
 - `cacheTtl()`
 
-`Connection` consumes these values when a cache backend is configured via `setCache()`.
+When you configure a cache backend with `Connection::setCache()`, the connection uses those values for cached query execution.
 
-## Execution Through Connection
+## Executing Queries Through Connection
 
-`Connection` methods:
+`Connection` provides these execution methods:
 
 - `fetchAll($query)`
 - `fetchOne($query)`
@@ -168,7 +160,7 @@ Query classes implement `CacheableQueryInterface` and expose:
 - `cursor($query)`
 - `chunked($query, $size)`
 
-Plus explicit-key cache wrappers:
+If you prefer explicit cache keys, use:
 
 - `fetchAllCached($query, $key, $ttl)`
 - `fetchOneCached($query, $key, $ttl)`

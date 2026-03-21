@@ -1,8 +1,10 @@
 # Seeding
 
-Seeders are class-based, attribute-discovered units for populating data.
+Seeders are classes discovered through attributes. They are useful for baseline data, local fixtures, demo content, and any other setup you want to run in a repeatable way.
 
-Core pieces:
+## Key Classes
+
+The seeding system is built around these types:
 
 - `arabcoders\database\Attributes\Seeder`
 - `arabcoders\database\Seeder\SeederRunner`
@@ -44,24 +46,23 @@ final class BaseUsersSeeder extends SeederRunner
 
 ## Seeder Attribute Fields
 
-- `name` - unique logical seeder id.
-- `dependsOn` - seeder names that must run first.
-- `tags` - optional labels.
-- `groups` - optional grouping labels.
-- `mode` - default run mode (`always`, `once`, `rebuild`).
+The seeder attribute supports these fields:
+
+- `name` for the unique logical seeder identifier.
+- `dependsOn` for seeder names that must run first.
+- `tags` for optional labels.
+- `groups` for optional grouping labels.
+- `mode` for the default run mode (`always`, `once`, or `rebuild`).
 
 ## Registry and Dependency Resolution
 
-`SeederRegistry` scans configured directories and validates:
+`SeederRegistry` scans the configured directories, discovers seeder classes by attribute, and validates that each seeder name is unique and each class extends `SeederRunner`.
 
-- unique seeder names
-- class extends `SeederRunner`
+`SeederDependencyResolver` adds required dependencies, sorts seeders into a safe execution order, and detects cycles.
 
-`SeederDependencyResolver` computes execution order and detects cycles.
+## Running Seeders With SeederService
 
-## Running Seeders via SeederService
-
-`SeederService` is the main programmatic entry point.
+`SeederService` is the main entry point when you want to run seeders from application code or a console command.
 
 ```php
 <?php
@@ -85,51 +86,51 @@ $result = $service->run(new SeederRequest(
 ));
 ```
 
-`SeederResult` returns:
+`SeederResult` includes:
 
-- selected seeder definitions
-- dry-run flag
-- execution entries with status/reason/history id
+- The selected seeder definitions.
+- The dry-run flag.
+- Execution entries with status, reason, and history id.
 
 ## Run Modes
 
-`SeederRunMode` values:
+`SeederRunMode` supports:
 
-- `auto` - use each seeder's declared mode
-- `once` - skip seeders already executed successfully
-- `always` - always execute
-- `rebuild` - remove previous history for that seeder before running
+- `auto`, which uses each seeder's declared mode.
+- `once`, which skips seeders that already ran successfully.
+- `always`, which always executes the selected seeders.
+- `rebuild`, which removes previous history for that seeder before running it again.
 
 ## Transaction Modes
 
-`SeederTransactionMode` values:
+`SeederTransactionMode` supports:
 
-- `none` - no transaction wrapping
-- `per-seeder` - each seeder in its own transaction
-- `per-run` - one transaction for the full run
+- `none`, which runs without transaction wrapping.
+- `per-seeder`, which wraps each seeder in its own transaction.
+- `per-run`, which wraps the full seeding run in one transaction.
 
 ## Execution History
 
 `SeederExecutionHistory` stores status rows in `seeder_version`.
 
-Behavior:
+It:
 
-- creates table/index automatically
-- tracks `executed` and `failed` runs
-- used for `once` checks and `rebuild` semantics
+- Creates the table and index automatically.
+- Tracks both `executed` and `failed` runs.
+- Powers `once` checks and `rebuild` behavior.
 
 ## Filtering and Selection
 
 `SeederService` supports:
 
-- class/name prefix filtering (`classFilter`)
-- tag filtering (`tag`)
-- group filtering (`group`)
+- Class or name prefix filtering through `classFilter`.
+- Tag filtering through `tag`.
+- Group filtering through `group`.
 
-Dependency closure is applied to selected roots, then ordered execution is produced.
+After filtering, the service adds any required dependencies and then builds the final execution order.
 
 ## Dry Run
 
-When `dryRun` is `true`, the service returns planned entries without execution.
+When `dryRun` is `true`, the service returns the seeding plan without running anything.
 
-This is useful for previews in CI/CD pipelines or local verification tooling.
+This is useful when you want to preview a deployment, release, or local setup run before it changes data.
