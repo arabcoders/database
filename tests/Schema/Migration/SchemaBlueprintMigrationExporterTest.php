@@ -51,6 +51,7 @@ final class SchemaBlueprintMigrationExporterTest extends TestCase
         static::assertStringContainsString('->check(', $content);
         static::assertStringContainsString('->generated(', $content);
         static::assertStringContainsString('expression: ', $content);
+        static::assertStringContainsString('useMigrationPlan', $content);
     }
 
     public function testExporterPreservesDroppedIndexMetadata(): void

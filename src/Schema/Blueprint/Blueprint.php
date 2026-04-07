@@ -6,6 +6,7 @@ namespace arabcoders\database\Schema\Blueprint;
 
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
+use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use arabcoders\database\Schema\Operation\AddIndexOperation;
 use arabcoders\database\Schema\Operation\CreateTableOperation;
 use arabcoders\database\Schema\Operation\DropTableOperation;
@@ -19,6 +20,8 @@ final class Blueprint
      * @var array<int,SchemaOperation>
      */
     private array $operations = [];
+
+    private ?SchemaMigrationPlan $migrationPlan = null;
 
     /**
      * Execute create table for this blueprint.
@@ -62,6 +65,11 @@ final class Blueprint
         $this->operations[] = $operation;
     }
 
+    public function useMigrationPlan(SchemaMigrationPlan $plan): void
+    {
+        $this->migrationPlan = $plan;
+    }
+
     /**
      * @return array<int,SchemaOperation>
      */
@@ -72,6 +80,10 @@ final class Blueprint
 
     public function toDiff(): SchemaDiff
     {
-        return new SchemaDiff(new SchemaDefinition(), new SchemaDefinition(), $this->operations);
+        return new SchemaDiff(
+            $this->migrationPlan->from ?? new SchemaDefinition(),
+            $this->migrationPlan->to ?? new SchemaDefinition(),
+            $this->operations,
+        );
     }
 }

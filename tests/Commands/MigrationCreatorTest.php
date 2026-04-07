@@ -12,6 +12,8 @@ use arabcoders\database\Schema\AutogenSchemaAugmenterInterface;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
 use arabcoders\database\Schema\Migration\MigrationTemplate;
+use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
+use arabcoders\database\Schema\SchemaIntrospector;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use SplFileInfo;
@@ -106,6 +108,44 @@ final class MigrationCreatorTest extends TestCase
         static::assertStringContainsString('RENAME TO "_tmp_user_profile_old"', $sql);
         static::assertStringContainsString('CREATE INDEX "idx_user_profile_email_external" ON "user_profile" ("email")', $sql);
         static::assertStringContainsString('CREATE INDEX "idx_user_profile_email_lower_external" ON "user_profile" ((lower(email)))', $sql);
+    }
+
+    public function testExecutedAutogenMigrationPreservesExternalIndexesDuringSqliteRebuild(): void
+    {
+        $pdo = $this->createSqliteConnection();
+        $this->createUserProfileTable($pdo, includeLegacy: true);
+        $this->createUserProfileModelIndexes($pdo);
+        $this->createUserProfileExternalIndexes($pdo);
+
+        $directory = sys_get_temp_dir() . '/ac-database-tests-' . uniqid('', true);
+        $creator = new MigrationCreator($directory, new MigrationTemplate());
+        $draft = $creator->createAutogenWithOptions(
+            'drop legacy column',
+            $pdo,
+            $this->userProfileModelPaths(),
+            new MigrationAutogenOptions(
+                augmenters: [$this->externalIndexAugmenter()],
+            ),
+            static fn(): string => '240101000003',
+        );
+
+        static::assertInstanceOf(MigrationDraft::class, $draft);
+        $creator->persist($draft);
+
+        require_once $draft->filePath;
+
+        $class = 'Migration\\' . $draft->className;
+        $runner = new SchemaBlueprintRunner($pdo);
+        $runner->run(new $class(), 'up');
+
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        $table = $schema->getTable('user_profile');
+
+        static::assertNotNull($table);
+        static::assertNull($table->getColumn('legacy'));
+        static::assertNotNull($table->getColumn('display_name'));
+        static::assertNotNull($table->getIndex('idx_user_profile_email_external'));
+        static::assertNotNull($table->getIndex('idx_user_profile_email_lower_external'));
     }
 
     private function creator(): MigrationCreator
