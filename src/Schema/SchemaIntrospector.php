@@ -23,27 +23,25 @@ final class SchemaIntrospector
     /**
      * Introspect the connected database and produce a normalized schema definition.
      *
-     * @param array<int,string> $ignoreTables
+     * @param SchemaIntrospectOptions|array<int,string> $options
      * @return SchemaDefinition
      * @throws RuntimeException If the PDO driver is unsupported.
      * @throws RuntimeException If required catalog metadata cannot be loaded.
      */
-    public function introspect(array $ignoreTables = []): SchemaDefinition
+    public function introspect(SchemaIntrospectOptions|array $options = []): SchemaDefinition
     {
+        $options = $this->normalizeIntrospectOptions($options);
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
         return match ($driver) {
-            'mysql' => $this->introspectMysql($ignoreTables),
-            'pgsql' => $this->introspectPostgres($ignoreTables),
-            'sqlite' => $this->introspectSqlite($ignoreTables),
+            'mysql' => $this->introspectMysql($options),
+            'pgsql' => $this->introspectPostgres($options),
+            'sqlite' => $this->introspectSqlite($options),
             default => throw new RuntimeException('Unsupported database driver: ' . $driver),
         };
     }
 
-    /**
-     * @param array<int,string> $ignoreTables
-     */
-    private function introspectMysql(array $ignoreTables): SchemaDefinition
+    private function introspectMysql(SchemaIntrospectOptions $options): SchemaDefinition
     {
         $schema = new SchemaDefinition();
 
@@ -59,7 +57,7 @@ final class SchemaIntrospector
 
         foreach ($tablesStmt->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['TABLE_NAME'];
-            if (in_array($tableName, $ignoreTables, true)) {
+            if ($options->shouldIgnoreTable($tableName)) {
                 continue;
             }
 
@@ -194,13 +192,18 @@ final class SchemaIntrospector
                     $algorithm = null;
                 }
 
-                $table->addIndex(new IndexDefinition(
+                $index = new IndexDefinition(
                     name: $name,
                     columns: array_values($columns),
                     unique: (bool) $data['unique'],
                     type: $indexType,
                     algorithm: $this->wrapDriverValue($algorithm, 'mysql'),
-                ));
+                );
+                if ($options->shouldIgnoreIndex($tableName, $index)) {
+                    continue;
+                }
+
+                $table->addIndex($index);
             }
 
             $foreignStmt = $this->pdo->prepare(
@@ -256,10 +259,7 @@ final class SchemaIntrospector
         return $schema;
     }
 
-    /**
-     * @param array<int,string> $ignoreTables
-     */
-    private function introspectPostgres(array $ignoreTables): SchemaDefinition
+    private function introspectPostgres(SchemaIntrospectOptions $options): SchemaDefinition
     {
         $schema = new SchemaDefinition();
 
@@ -275,7 +275,7 @@ final class SchemaIntrospector
 
         foreach ($tablesStmt->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['table_name'];
-            if (in_array($tableName, $ignoreTables, true)) {
+            if ($options->shouldIgnoreTable($tableName)) {
                 continue;
             }
 
@@ -453,7 +453,7 @@ final class SchemaIntrospector
                     continue;
                 }
 
-                $table->addIndex(new IndexDefinition(
+                $index = new IndexDefinition(
                     name: $name,
                     columns: array_values($columns),
                     unique: (bool) $data['unique'],
@@ -461,7 +461,12 @@ final class SchemaIntrospector
                     algorithm: $this->wrapDriverValue($algorithm, 'pgsql'),
                     where: is_string($data['where'] ?? null) ? $data['where'] : null,
                     expression: $expression,
-                ));
+                );
+                if ($options->shouldIgnoreIndex($tableName, $index)) {
+                    continue;
+                }
+
+                $table->addIndex($index);
             }
 
             $foreignStmt = $this->pdo->prepare(
@@ -519,17 +524,14 @@ final class SchemaIntrospector
         return $schema;
     }
 
-    /**
-     * @param array<int,string> $ignoreTables
-     */
-    private function introspectSqlite(array $ignoreTables): SchemaDefinition
+    private function introspectSqlite(SchemaIntrospectOptions $options): SchemaDefinition
     {
         $schema = new SchemaDefinition();
 
         $tables = $this->pdo->query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
         foreach ($tables->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['name'];
-            if (in_array($tableName, $ignoreTables, true)) {
+            if ($options->shouldIgnoreTable($tableName)) {
                 continue;
             }
 
@@ -641,7 +643,7 @@ final class SchemaIntrospector
                     $normalizedColumns = [];
                 }
 
-                $table->addIndex(new IndexDefinition(
+                $index = new IndexDefinition(
                     name: $indexName,
                     columns: $normalizedColumns,
                     unique: $unique,
@@ -649,7 +651,12 @@ final class SchemaIntrospector
                     algorithm: [],
                     where: $indexWhere,
                     expression: $indexExpression,
-                ));
+                );
+                if ($options->shouldIgnoreIndex($tableName, $index)) {
+                    continue;
+                }
+
+                $table->addIndex($index);
             }
 
             $fkStmt = $this->pdo->query('PRAGMA foreign_key_list(' . $this->quoteSqliteIdentifier($tableName) . ')');
@@ -692,6 +699,18 @@ final class SchemaIntrospector
         }
 
         return $schema;
+    }
+
+    /**
+     * @param SchemaIntrospectOptions|array<int,string> $options
+     */
+    private function normalizeIntrospectOptions(SchemaIntrospectOptions|array $options): SchemaIntrospectOptions
+    {
+        if ($options instanceof SchemaIntrospectOptions) {
+            return $options;
+        }
+
+        return new SchemaIntrospectOptions(ignoreTables: $options);
     }
 
     /**

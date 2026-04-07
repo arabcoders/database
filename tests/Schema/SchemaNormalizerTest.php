@@ -12,6 +12,7 @@ use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\PostgresDialect;
+use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\SchemaNormalizer;
 use PHPUnit\Framework\TestCase;
 
@@ -243,5 +244,20 @@ final class SchemaNormalizerTest extends TestCase
         static::assertNotNull($index);
         static::assertSame('(lower(name))', $index->expression);
         static::assertSame('deleted_at IS NULL', $index->where);
+    }
+
+    public function testNormalizeSqlitePreservesExplicitIndexNames(): void
+    {
+        $schema = new SchemaDefinition();
+        $table = new TableDefinition('widgets');
+        $table->addIndex(new IndexDefinition('idx_widgets_runtime_name', ['name']));
+        $schema->addTable($table);
+
+        $normalizer = new SchemaNormalizer();
+        $normalized = $normalizer->normalize($schema, new SqliteDialect());
+        $normalizedTable = $normalized->getTable('widgets');
+
+        static::assertNotNull($normalizedTable);
+        static::assertNotNull($normalizedTable->getIndex('idx_widgets_runtime_name'));
     }
 }

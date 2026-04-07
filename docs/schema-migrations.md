@@ -158,11 +158,23 @@ Supporting builders include:
 
 `MigrationCreator::createAutogen(...)` can build a migration draft by diffing your model schema against the live database.
 
+For more control, `MigrationCreator::createAutogenWithOptions(...)` accepts `MigrationAutogenOptions`, which can:
+
+- pass `SchemaIntrospectOptions` to schema introspection
+- keep or drop orphan tables
+- return dry-run SQL previews
+- run autogen schema augmenters before diffing
+
 Available options include:
 
 - Ignored tables.
+- Index-level introspection filters.
 - Inclusion or exclusion of orphan drops.
 - Dry-run SQL preview output.
+
+Autogen schema augmenters are the package extension point for preserving externally managed indexes. They receive both the model target schema and the live database schema, and can copy existing runtime-managed indexes into the target schema before diffing.
+
+This matters most on SQLite: ignoring an index during introspection only removes it from the source schema. If a table rebuild is required, SQLite recreates indexes from the target table definition only, so preserved external indexes must be injected into the target schema to survive the rebuild.
 
 Rendered files are produced through `MigrationFileRenderer` and `SchemaBlueprintMigrationExporter`.
 

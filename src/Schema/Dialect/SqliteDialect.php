@@ -391,15 +391,21 @@ final class SqliteDialect extends AbstractSchemaDialect
 
     private function resolveIndexName(string $table, IndexDefinition $index): string
     {
-        if (null !== $index->expression && '' !== trim($index->expression)) {
-            return $index->name;
+        $name = trim($index->name);
+        if ('' !== $name) {
+            return $name;
         }
 
         if (empty($index->columns)) {
-            return $index->name;
+            throw new RuntimeException('SQLite index name is required.');
         }
 
-        return NameHelper::indexName($table, $index->columns, $index->unique, 'index');
+        $type = strtolower($index->type);
+        if ('index' === $type && $index->unique) {
+            $type = 'unique';
+        }
+
+        return NameHelper::indexName($table, $index->columns, $index->unique, $type);
     }
 
     private function renderForeignKey(ForeignKeyDefinition $foreignKey): string

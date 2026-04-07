@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
+use arabcoders\database\Schema\Definition\IndexDefinition;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\SchemaDiffer;
+use arabcoders\database\Schema\SchemaIntrospectOptions;
 use arabcoders\database\Schema\SchemaIntrospector;
 use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\Utils\NameHelper;
@@ -77,12 +79,31 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertNotNull($generated);
         static::assertTrue($generated->generated);
 
-        $partial = $table->getIndex(NameHelper::indexName('widgets', ['name'], false, 'index'));
+        $partial = $table->getIndex('idx_widgets_partial');
         static::assertNotNull($partial);
         static::assertSame('deleted_at IS NULL', $partial->where);
 
         $expression = $table->getIndex('idx_widgets_expr');
         static::assertNotNull($expression);
         static::assertSame('(lower(name))', $expression->expression);
+    }
+
+    public function testSqliteIntrospectionCanIgnoreIndexesWithOptions(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+        $pdo->exec('CREATE INDEX idx_widgets_name ON widgets(name)');
+        $pdo->exec('CREATE INDEX idx_widgets_expr ON widgets((lower(name)))');
+
+        $schema = new SchemaIntrospector($pdo)->introspect(new SchemaIntrospectOptions(
+            ignoreIndex: static fn(string $table, IndexDefinition $index): bool => 'widgets' === $table && null !== $index->expression,
+        ));
+        $table = $schema->getTable('widgets');
+
+        static::assertNotNull($table);
+        static::assertNotNull($table->getIndex('idx_widgets_name'));
+        static::assertNull($table->getIndex('idx_widgets_expr'));
     }
 }

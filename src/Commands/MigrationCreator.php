@@ -11,6 +11,7 @@ use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use arabcoders\database\Schema\SchemaDiffer;
+use arabcoders\database\Schema\SchemaIntrospectOptions;
 use arabcoders\database\Schema\SchemaIntrospector;
 use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\SchemaRegistry;
@@ -87,6 +88,37 @@ final class MigrationCreator
         bool $dryRun = false,
         ?callable $idGenerator = null,
     ): MigrationDraft|MigrationPreview {
+        return $this->createAutogenWithOptions(
+            $name,
+            $pdo,
+            $modelPaths,
+            new MigrationAutogenOptions(
+                introspect: new SchemaIntrospectOptions(ignoreTables: $ignoreTables),
+                dropOrphans: $dropOrphans,
+                dryRun: $dryRun,
+            ),
+            $idGenerator,
+        );
+    }
+
+    /**
+     * Build a migration draft by diffing database schema against model schema.
+     *
+     * @param string $name Human-readable migration name.
+     * @param PDO $pdo Active PDO connection.
+     * @param array<int,string> $modelPaths
+     * @param MigrationAutogenOptions $options Autogen options.
+     * @param ?callable $idGenerator Optional custom migration id generator.
+     * @return MigrationDraft|MigrationPreview
+     * @throws RuntimeException If no models are discovered, no changes exist, or migration naming is invalid.
+     */
+    public function createAutogenWithOptions(
+        string $name,
+        PDO $pdo,
+        array $modelPaths,
+        MigrationAutogenOptions $options,
+        ?callable $idGenerator = null,
+    ): MigrationDraft|MigrationPreview {
         $slug = $this->normalizeName($name);
         if ('' === $slug) {
             throw new RuntimeException('Migration name is required.');
@@ -99,15 +131,20 @@ final class MigrationCreator
         }
 
         $introspector = new SchemaIntrospector($pdo);
-        $dbSchema = $introspector->introspect($ignoreTables);
+        $dbSchema = $introspector->introspect($options->introspectOptions());
+
+        if (!$options->dropOrphans) {
+            $dbSchema = $this->filterSchemaToModels($dbSchema, $modelSchema);
+        }
 
         $dialect = SchemaDialectFactory::fromPdo($pdo);
+        foreach ($options->augmenters as $augmenter) {
+            $augmenter->augmentTargetSchema($modelSchema, $dbSchema, $dialect, $pdo);
+        }
+
         $normalizer = new SchemaNormalizer();
         $modelSchema = $normalizer->normalize($modelSchema, $dialect);
         $dbSchema = $normalizer->normalize($dbSchema, $dialect);
-        if (!$dropOrphans) {
-            $dbSchema = $this->filterSchemaToModels($dbSchema, $modelSchema);
-        }
 
         $diff = new SchemaDiffer()->diff($dbSchema, $modelSchema);
         $renderer = new SchemaSqlRenderer($dialect);
@@ -117,7 +154,7 @@ final class MigrationCreator
             throw new RuntimeException('No schema changes found.', 400);
         }
 
-        if ($dryRun) {
+        if ($options->dryRun) {
             return new MigrationPreview($sql->up, $sql->down);
         }
 

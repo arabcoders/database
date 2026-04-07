@@ -13,7 +13,6 @@ use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\PostgresDialect;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
-use arabcoders\database\Schema\Utils\NameHelper;
 
 final class SchemaNormalizer
 {
@@ -83,9 +82,6 @@ final class SchemaNormalizer
                 $columns = $index->columns;
 
                 if ($dialect instanceof SqliteDialect) {
-                    $name = empty($columns)
-                        ? $name
-                        : NameHelper::indexName($table->name, $columns, $index->unique, 'index');
                     $type = 'index';
                 }
 
