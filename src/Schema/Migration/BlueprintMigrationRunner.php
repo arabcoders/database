@@ -116,9 +116,9 @@ final class BlueprintMigrationRunner
         $this->ensureLockTable();
         $applied = $this->getAppliedRowsByVersion();
 
-        return array_map(static function (array $migration) use ($applied): array {
+        return array_map(function (array $migration) use ($applied): array {
             $version = (string) $migration['id'];
-            $appliedRow = $applied[$version] ?? null;
+            $appliedRow = $applied[$this->versionLookupKey($version)] ?? null;
             $appliedChecksum = is_array($appliedRow) ? (string) ($appliedRow['checksum'] ?? '') : '';
 
             $migration['applied'] = null !== $appliedRow;
@@ -215,11 +215,11 @@ final class BlueprintMigrationRunner
         $runner = function () use ($migrations, $targets, $repair, $force): void {
             $this->validateAppliedState($migrations, $force, $repair);
 
-            $applied = array_flip($this->getAppliedVersions());
+            $applied = $this->buildVersionLookup($this->getAppliedVersions());
             $this->runInTransaction(function () use ($targets, $applied): void {
                 foreach ($targets as $migration) {
                     $version = (string) $migration['id'];
-                    if (isset($applied[$version])) {
+                    if (isset($applied[$this->versionLookupKey($version)])) {
                         continue;
                     }
 
@@ -282,18 +282,19 @@ final class BlueprintMigrationRunner
 
         $byId = [];
         foreach ($migrations as $migration) {
-            $byId[(string) $migration['id']] = $migration;
+            $byId[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
         $targets = array_slice($applied, 0, $steps);
         $ran = [];
 
         foreach ($targets as $version) {
-            if (!isset($byId[$version])) {
+            $lookupKey = $this->versionLookupKey($version);
+            if (!isset($byId[$lookupKey])) {
                 throw new MigrationMissingException(sprintf('Applied migration version %s is missing from source files.', $version));
             }
 
-            $migration = $byId[$version];
+            $migration = $byId[$lookupKey];
             $ran[] = $migration;
 
             if ($dryRun) {
@@ -570,16 +571,17 @@ final class BlueprintMigrationRunner
         $targets = array_slice($appliedVersions, 0, $steps > 0 ? $steps : 1);
         $byId = [];
         foreach ($migrations as $migration) {
-            $byId[(string) $migration['id']] = $migration;
+            $byId[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
         $selected = [];
         foreach ($targets as $version) {
-            if (!isset($byId[$version])) {
+            $lookupKey = $this->versionLookupKey($version);
+            if (!isset($byId[$lookupKey])) {
                 continue;
             }
 
-            $selected[] = $byId[$version];
+            $selected[] = $byId[$lookupKey];
         }
 
         return $selected;
@@ -616,7 +618,7 @@ final class BlueprintMigrationRunner
             }
 
             $version = (string) $row['version'];
-            $applied[$version] = [
+            $applied[$this->versionLookupKey($version)] = [
                 'version' => $version,
                 'name' => isset($row['name']) ? (string) $row['name'] : '',
                 'checksum' => isset($row['checksum']) ? (string) $row['checksum'] : '',
@@ -709,18 +711,20 @@ final class BlueprintMigrationRunner
 
         $known = [];
         foreach ($migrations as $migration) {
-            $known[(string) $migration['id']] = $migration;
+            $known[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
-        foreach ($applied as $version => $row) {
-            if (!isset($known[$version])) {
+        foreach ($applied as $row) {
+            $version = (string) $row['version'];
+            $lookupKey = $this->versionLookupKey($version);
+            if (!isset($known[$lookupKey])) {
                 throw new MigrationMissingException(
                     sprintf('Applied migration version %s is missing from source files.', $version),
                 );
             }
 
             $storedChecksum = (string) ($row['checksum'] ?? '');
-            $currentChecksum = (string) $known[$version]['checksum'];
+            $currentChecksum = (string) $known[$lookupKey]['checksum'];
 
             if ('' !== $storedChecksum && hash_equals($storedChecksum, $currentChecksum)) {
                 continue;
@@ -785,18 +789,20 @@ final class BlueprintMigrationRunner
 
         $known = [];
         foreach ($migrations as $migration) {
-            $known[(string) $migration['id']] = $migration;
+            $known[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
         $issues = [];
-        foreach ($applied as $version => $row) {
-            if (!isset($known[$version])) {
+        foreach ($applied as $row) {
+            $version = (string) $row['version'];
+            $lookupKey = $this->versionLookupKey($version);
+            if (!isset($known[$lookupKey])) {
                 $issues[] = sprintf('Applied migration version %s is missing from source files.', $version);
                 continue;
             }
 
             $storedChecksum = (string) ($row['checksum'] ?? '');
-            $currentChecksum = (string) $known[$version]['checksum'];
+            $currentChecksum = (string) $known[$lookupKey]['checksum'];
 
             if ('' !== $storedChecksum && hash_equals($storedChecksum, $currentChecksum)) {
                 continue;
@@ -835,12 +841,12 @@ final class BlueprintMigrationRunner
             return null;
         }
 
-        $applied = array_flip($appliedVersions);
+        $applied = $this->buildVersionLookup($appliedVersions);
         $seenUnapplied = false;
 
         foreach ($migrations as $migration) {
             $version = (string) $migration['id'];
-            $isApplied = isset($applied[$version]);
+            $isApplied = isset($applied[$this->versionLookupKey($version)]);
             if (!$isApplied) {
                 $seenUnapplied = true;
                 continue;
@@ -852,6 +858,25 @@ final class BlueprintMigrationRunner
         }
 
         return null;
+    }
+
+    /**
+     * @param array<int,string> $versions
+     * @return array<string,true>
+     */
+    private function buildVersionLookup(array $versions): array
+    {
+        $lookup = [];
+        foreach ($versions as $version) {
+            $lookup[$this->versionLookupKey((string) $version)] = true;
+        }
+
+        return $lookup;
+    }
+
+    private function versionLookupKey(string $version): string
+    {
+        return 'v:' . $version;
     }
 
     private function tableExists(string $table): bool

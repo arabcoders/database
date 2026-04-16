@@ -95,6 +95,27 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('up', true);
     }
 
+    public function testRunnerRepairsChecksumForNumericStringMigrationVersion(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
+
+        $runner->migrate('up', false);
+        $pdo->exec("UPDATE migration_version SET checksum = 'invalid-checksum' WHERE version = '1'");
+
+        $runner->migrate('up', false, 0, false, true);
+
+        $migrations = $runner->listMigrations();
+
+        static::assertCount(1, $migrations);
+        static::assertTrue((bool) $migrations[0]['applied']);
+        static::assertTrue((bool) $migrations[0]['checksum_matches']);
+        static::assertNull($migrations[0]['error']);
+    }
+
     public function testRunnerThrowsWhenMigrationLockIsAlreadyHeld(): void
     {
         $pdo = new PDO('sqlite::memory:');
