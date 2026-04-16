@@ -1,6 +1,5 @@
 {
     "name": "arabcoders/database",
-    "version": "1.0.0",
     "type": "library",
     "description": "Standalone database toolkit for PDO with query building, ORM, schema migrations, and seeding.",
     "scripts": {
