@@ -44,6 +44,9 @@ final class EnumTransformer
 
     private function decode(mixed $data): mixed
     {
+        if ($data instanceof $this->enumName) {
+            return $data;
+        }
         return is_subclass_of($this->enumName, BackedEnum::class) ? $this->enumName::from($data) : constant($this->enumName . '::' . $data);
     }
 }
