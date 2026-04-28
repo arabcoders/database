@@ -7,7 +7,7 @@ namespace tests\Schema;
 use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Operation\DropIndexOperation;
 use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class TableBlueprintTest extends TestCase
 {

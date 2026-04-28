@@ -14,7 +14,7 @@ use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\PostgresDialect;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\SchemaNormalizer;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaNormalizerTest extends TestCase
 {

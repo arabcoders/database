@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace tests\Commands;
 
 use arabcoders\database\Commands\MigrationSquasher;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class MigrationSquasherTest extends TestCase
 {
@@ -42,8 +42,7 @@ final class MigrationSquasherTest extends TestCase
 
     public function testSquashDryRunCombinesOperations(): void
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'migrate_squash_' . uniqid();
-        mkdir($tmp);
+        $tmp = $this->tempDir('migration-squash');
 
         $f1 = $this->makeMigrationFile(
             $tmp,
@@ -77,17 +76,11 @@ final class MigrationSquasherTest extends TestCase
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0001.php');
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0002.php');
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0003.php');
-
-        unlink($tmp . DIRECTORY_SEPARATOR . 'Migration_0001.php');
-        unlink($tmp . DIRECTORY_SEPARATOR . 'Migration_0002.php');
-        unlink($tmp . DIRECTORY_SEPARATOR . 'Migration_0003.php');
-        rmdir($tmp);
     }
 
     public function testSquashApplyRewritesLatestAndRemovesRange(): void
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'migrate_squash_' . uniqid();
-        mkdir($tmp);
+        $tmp = $this->tempDir('migration-squash');
 
         $f1 = $this->makeMigrationFile(
             $tmp,
@@ -120,8 +113,5 @@ final class MigrationSquasherTest extends TestCase
         static::assertStringContainsString("createTable('x'", $latestContent);
         static::assertStringContainsString("createTable('y'", $latestContent);
         static::assertStringContainsString("createTable('z'", $latestContent);
-
-        unlink($tmp . DIRECTORY_SEPARATOR . 'Migration_1003.php');
-        rmdir($tmp);
     }
 }

@@ -6,7 +6,7 @@ namespace tests\Schema;
 
 use arabcoders\database\Attributes\Schema\Column;
 use arabcoders\database\Schema\Definition\ColumnType;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class ColumnAttributeTest extends TestCase
 {

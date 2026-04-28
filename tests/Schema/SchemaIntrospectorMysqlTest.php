@@ -7,8 +7,8 @@ namespace tests\Schema;
 use arabcoders\database\Schema\SchemaIntrospector;
 use PDO;
 use PDOStatement;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SchemaIntrospectorMysqlTest extends TestCase
 {

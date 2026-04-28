@@ -6,7 +6,6 @@ namespace tests;
 
 use arabcoders\database\Dialect\SqliteDialect;
 use arabcoders\database\Query\Identifier;
-use PHPUnit\Framework\TestCase;
 
 final class IdentifierTest extends TestCase
 {

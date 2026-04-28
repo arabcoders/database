@@ -6,7 +6,6 @@ namespace tests;
 
 use arabcoders\database\Orm\EntityHydrator;
 use arabcoders\database\Orm\EntityMetadataFactory;
-use PHPUnit\Framework\TestCase;
 use tests\fixtures\AutoNullableTransformEntity;
 use tests\fixtures\DirtyAwareUserEntity;
 use tests\fixtures\ProtectedModelEntity;

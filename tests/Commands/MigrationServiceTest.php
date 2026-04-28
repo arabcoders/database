@@ -7,15 +7,15 @@ namespace tests\Commands;
 use arabcoders\database\Commands\MigrationRequest;
 use arabcoders\database\Commands\MigrationService;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
+use tests\TestCase;
 
 final class MigrationServiceTest extends TestCase
 {
     public function testListExposesChecksumAndLockInformation(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $service = new MigrationService($pdo, $this->migrationFixturePath());
@@ -40,7 +40,7 @@ final class MigrationServiceTest extends TestCase
 
     public function testListShowsChecksumMismatchVisibility(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $service = new MigrationService($pdo, $this->migrationFixturePath());
@@ -56,7 +56,7 @@ final class MigrationServiceTest extends TestCase
 
     public function testListShowsActiveLockDetails(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $service = new MigrationService($pdo, $this->migrationFixturePath());
@@ -72,7 +72,7 @@ final class MigrationServiceTest extends TestCase
 
     public function testProbeExposesPendingMigrationsWithoutCreatingMetadataTables(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $service = new MigrationService($pdo, $this->migrationFixturePath());
@@ -89,7 +89,7 @@ final class MigrationServiceTest extends TestCase
 
     public function testProbeReportsChecksumIssuesWithoutThrowing(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $service = new MigrationService($pdo, $this->migrationFixturePath());

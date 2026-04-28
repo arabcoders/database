@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace tests\Schema;
 
 use arabcoders\database\Attributes\Schema\Table;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class TableAttributeTest extends TestCase
 {

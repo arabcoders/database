@@ -10,8 +10,8 @@ use arabcoders\database\Schema\Definition\ForeignKeyDefinition;
 use arabcoders\database\Schema\Definition\IndexDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SqliteDialectTest extends TestCase
 {

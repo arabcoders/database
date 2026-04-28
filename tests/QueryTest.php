@@ -14,7 +14,6 @@ use arabcoders\database\Query\RawExpression;
 use arabcoders\database\Query\SelectQuery;
 use arabcoders\database\Query\UpdateQuery;
 use arabcoders\database\Query\UpsertValue;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class QueryTest extends TestCase

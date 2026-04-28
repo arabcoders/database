@@ -15,8 +15,8 @@ use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use arabcoders\database\Schema\SchemaIntrospector;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use SplFileInfo;
+use tests\TestCase;
 
 final class MigrationCreatorTest extends TestCase
 {
@@ -117,7 +117,7 @@ final class MigrationCreatorTest extends TestCase
         $this->createUserProfileModelIndexes($pdo);
         $this->createUserProfileExternalIndexes($pdo);
 
-        $directory = sys_get_temp_dir() . '/ac-database-tests-' . uniqid('', true);
+        $directory = $this->tempDir('migration-creator');
         $creator = new MigrationCreator($directory, new MigrationTemplate());
         $draft = $creator->createAutogenWithOptions(
             'drop legacy column',
@@ -150,7 +150,7 @@ final class MigrationCreatorTest extends TestCase
 
     private function creator(): MigrationCreator
     {
-        return new MigrationCreator(sys_get_temp_dir() . '/ac-database-tests', new MigrationTemplate());
+        return new MigrationCreator($this->tempDir('migration-creator'), new MigrationTemplate());
     }
 
     /**
@@ -166,10 +166,7 @@ final class MigrationCreatorTest extends TestCase
 
     private function createSqliteConnection(): PDO
     {
-        $pdo = new PDO('sqlite::memory:');
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        return $pdo;
+        return $this->memoryPdo();
     }
 
     private function createUserProfileTable(PDO $pdo, bool $includeDisplayName = true, bool $includeLegacy = false): void

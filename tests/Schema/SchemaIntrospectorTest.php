@@ -12,13 +12,13 @@ use arabcoders\database\Schema\SchemaIntrospector;
 use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\Utils\NameHelper;
 use PDO;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaIntrospectorTest extends TestCase
 {
     public function testSqliteIntrospectionBuildsSchema(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT)');
@@ -46,7 +46,7 @@ final class SchemaIntrospectorTest extends TestCase
 
     public function testSqliteIntrospectionRoundTripHasStableDiffForAdvancedIndexes(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $pdo->exec(
@@ -90,7 +90,7 @@ final class SchemaIntrospectorTest extends TestCase
 
     public function testSqliteIntrospectionCanIgnoreIndexesWithOptions(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');

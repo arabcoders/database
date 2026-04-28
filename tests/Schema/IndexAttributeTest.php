@@ -6,7 +6,7 @@ namespace tests\Schema;
 
 use arabcoders\database\Attributes\Schema\Index;
 use arabcoders\database\Attributes\Schema\Unique;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class IndexAttributeTest extends TestCase
 {

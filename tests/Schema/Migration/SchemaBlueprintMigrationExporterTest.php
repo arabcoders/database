@@ -13,7 +13,7 @@ use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use arabcoders\database\Schema\Operation\CreateTableOperation;
 use arabcoders\database\Schema\Operation\DropIndexOperation;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaBlueprintMigrationExporterTest extends TestCase
 {

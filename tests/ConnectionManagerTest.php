@@ -8,7 +8,6 @@ use arabcoders\database\Connection;
 use arabcoders\database\ConnectionManager;
 use arabcoders\database\Dialect\SqliteDialect;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class ConnectionManagerTest extends TestCase
@@ -16,8 +15,8 @@ final class ConnectionManagerTest extends TestCase
     public function testConnectionManagerRegistersAndResolvesConnections(): void
     {
         $manager = new ConnectionManager();
-        $default = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
-        $analytics = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $default = new Connection($this->memoryPdo(), new SqliteDialect());
+        $analytics = new Connection($this->memoryPdo(), new SqliteDialect());
 
         $manager->register('default', $default);
         $manager->register('analytics', $analytics);
@@ -31,8 +30,8 @@ final class ConnectionManagerTest extends TestCase
     public function testConnectionManagerSupportsChangingDefaultConnection(): void
     {
         $manager = new ConnectionManager();
-        $default = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
-        $reporting = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $default = new Connection($this->memoryPdo(), new SqliteDialect());
+        $reporting = new Connection($this->memoryPdo(), new SqliteDialect());
 
         $manager->register('default', $default);
         $manager->register('reporting', $reporting);
@@ -46,7 +45,7 @@ final class ConnectionManagerTest extends TestCase
     public function testConnectionManagerThrowsForUnknownConnection(): void
     {
         $manager = new ConnectionManager();
-        $manager->register('default', new Connection(new PDO('sqlite::memory:'), new SqliteDialect()));
+        $manager->register('default', new Connection($this->memoryPdo(), new SqliteDialect()));
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unknown connection');
@@ -56,7 +55,7 @@ final class ConnectionManagerTest extends TestCase
     public function testConnectionManagerTrimsNamesForLookupMethods(): void
     {
         $manager = new ConnectionManager();
-        $default = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $default = new Connection($this->memoryPdo(), new SqliteDialect());
         $manager->register('default', $default);
 
         static::assertTrue($manager->has(' default '));

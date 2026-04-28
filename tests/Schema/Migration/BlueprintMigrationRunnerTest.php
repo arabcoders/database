@@ -10,15 +10,15 @@ use arabcoders\database\Schema\Migration\MigrationLockException;
 use arabcoders\database\Schema\Migration\MigrationRegistry;
 use PDO;
 use PDOStatement;
-use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
+use tests\TestCase;
 
 final class BlueprintMigrationRunnerTest extends TestCase
 {
     public function testRunnerAppliesUpAndDown(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -33,7 +33,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerRejectsInvalidDirection(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -82,7 +82,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerThrowsWhenChecksumDoesNotMatchAppliedMigration(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -97,7 +97,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerRepairsChecksumForNumericStringMigrationVersion(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -118,7 +118,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerThrowsWhenMigrationLockIsAlreadyHeld(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -133,7 +133,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerProbeReturnsPendingWithoutCreatingMetadataTables(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);
@@ -152,7 +152,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
 
     public function testRunnerProbeReturnsCurrentLockStateWithoutMutatingVersionTable(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $registry = new MigrationRegistry([$this->migrationFixturePath()]);

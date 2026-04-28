@@ -13,7 +13,7 @@ use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use arabcoders\database\Schema\Operation\AddColumnOperation;
 use arabcoders\database\Schema\Operation\RenameTableOperation;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaMigrationPlanTest extends TestCase
 {

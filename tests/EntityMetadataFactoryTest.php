@@ -8,7 +8,6 @@ use arabcoders\database\Orm\EntityMetadataFactory;
 use arabcoders\database\Orm\RelationMetadata;
 use arabcoders\database\Transformer\TransformType;
 use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use tests\fixtures\AutoNullableTransformEntity;
 use tests\fixtures\BlogPostEntity;

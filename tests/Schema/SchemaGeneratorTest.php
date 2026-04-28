@@ -7,10 +7,10 @@ namespace tests\Schema;
 use arabcoders\database\Dialect\SqliteDialect as QuerySqliteDialect;
 use arabcoders\database\Schema\Dialect\SqliteDialect as SchemaSqliteDialect;
 use arabcoders\database\Schema\SchemaGenerator;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use tests\fixtures\BlogPostEntity;
 use tests\fixtures\UserEntity;
+use tests\TestCase;
 
 final class SchemaGeneratorTest extends TestCase
 {

@@ -9,7 +9,6 @@ use arabcoders\database\ConnectionManager;
 use arabcoders\database\Dialect\SqliteDialect;
 use arabcoders\database\Orm\OrmManager;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use tests\fixtures\UserEntity;
 
@@ -17,7 +16,7 @@ final class OrmManagerTest extends TestCase
 {
     public function testOrmManagerCachesRepositories(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
         $manager = OrmManager::fromConnection($connection);
 
@@ -29,7 +28,7 @@ final class OrmManagerTest extends TestCase
 
     public function testOrmManagerClearResetsCache(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
         $manager = OrmManager::fromConnection($connection);
 
@@ -42,8 +41,8 @@ final class OrmManagerTest extends TestCase
 
     public function testOrmManagerResolvesRepositoriesByConnectionName(): void
     {
-        $defaultPdo = new PDO('sqlite::memory:');
-        $analyticsPdo = new PDO('sqlite::memory:');
+        $defaultPdo = $this->memoryPdo();
+        $analyticsPdo = $this->memoryPdo();
 
         $defaultConnection = new Connection($defaultPdo, new SqliteDialect());
         $analyticsConnection = new Connection($analyticsPdo, new SqliteDialect());
@@ -64,8 +63,8 @@ final class OrmManagerTest extends TestCase
 
     public function testOrmManagerUsingConnectionSwitchesDefaultRepositoryConnection(): void
     {
-        $defaultPdo = new PDO('sqlite::memory:');
-        $reportingPdo = new PDO('sqlite::memory:');
+        $defaultPdo = $this->memoryPdo();
+        $reportingPdo = $this->memoryPdo();
 
         $defaultConnection = new Connection($defaultPdo, new SqliteDialect());
         $reportingConnection = new Connection($reportingPdo, new SqliteDialect());
@@ -83,7 +82,7 @@ final class OrmManagerTest extends TestCase
 
     public function testOrmManagerNamedConnectionRequiresManager(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
         $manager = OrmManager::fromConnection($connection);
 
@@ -94,8 +93,8 @@ final class OrmManagerTest extends TestCase
 
     public function testOrmManagerDefaultResolutionTracksConnectionManagerDefault(): void
     {
-        $defaultPdo = new PDO('sqlite::memory:');
-        $analyticsPdo = new PDO('sqlite::memory:');
+        $defaultPdo = $this->memoryPdo();
+        $analyticsPdo = $this->memoryPdo();
 
         $defaultConnection = new Connection($defaultPdo, new SqliteDialect());
         $analyticsConnection = new Connection($analyticsPdo, new SqliteDialect());

@@ -20,7 +20,7 @@ use arabcoders\database\Schema\Operation\RebuildTableOperation;
 use arabcoders\database\Schema\SchemaDiff;
 use arabcoders\database\Schema\SchemaDiffer;
 use arabcoders\database\Schema\SchemaSqlRenderer;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaSqlRendererTest extends TestCase
 {

@@ -10,14 +10,14 @@ use arabcoders\database\Schema\Dialect\PostgresDialect;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SchemaDialectFactoryTest extends TestCase
 {
     public function testFactoryResolvesSqliteDialect(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
 
         $dialect = SchemaDialectFactory::fromPdo($pdo);
         static::assertInstanceOf(SqliteDialect::class, $dialect);

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace tests;
 
 use DateTimeImmutable;
-use PHPUnit\Framework\TestCase;
 use tests\fixtures\DifferEntity;
 use tests\fixtures\IgnoredModelEntity;
 use tests\fixtures\ProtectedModelEntity;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace tests\Schema;
 
 use arabcoders\database\Schema\Utils\NameHelper;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class NameHelperTest extends TestCase
 {

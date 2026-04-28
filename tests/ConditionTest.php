@@ -10,7 +10,6 @@ use arabcoders\database\Dialect\SqliteDialect;
 use arabcoders\database\Query\Condition;
 use arabcoders\database\Query\ParameterBag;
 use arabcoders\database\Query\SelectQuery;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class ConditionTest extends TestCase

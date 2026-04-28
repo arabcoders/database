@@ -10,7 +10,6 @@ use arabcoders\database\Query\Condition;
 use arabcoders\database\Query\InsertQuery;
 use arabcoders\database\Query\SelectQuery;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use tests\fixtures\Cache\InMemoryCache;
 use tests\fixtures\FailingPdo;
@@ -25,7 +24,7 @@ final class ConnectionTest extends TestCase
 
     public function testConnectionProvidesDialectAndFetchesResults(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -53,7 +52,7 @@ final class ConnectionTest extends TestCase
 
     public function testConnectionThrowsWhenPrepareFails(): void
     {
-        $pdo = new FailingPdo('sqlite::memory:');
+        $pdo = $this->memoryPdo(FailingPdo::class);
         $connection = new Connection($pdo, new SqliteDialect());
 
         $this->expectException(RuntimeException::class);
@@ -63,7 +62,7 @@ final class ConnectionTest extends TestCase
 
     public function testConnectionUsesCacheWhenProvided(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -88,7 +87,7 @@ final class ConnectionTest extends TestCase
 
     public function testConnectionCursorAndChunkedIterateRows(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
         $pdo->exec("INSERT INTO widgets (name) VALUES ('One'), ('Two'), ('Three')");
@@ -115,7 +114,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionCommitsAtTopLevel(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -135,7 +134,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionNestedCommitUsesSavepoints(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -154,7 +153,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionNestedRollbackOnlyRollsBackInnerWork(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -180,7 +179,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionBubblesExceptionAndRollsBackTopLevel(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -203,7 +202,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionRetryRetriesAndReturnsResult(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
 
@@ -231,7 +230,7 @@ final class ConnectionTest extends TestCase
 
     public function testTransactionRetryBubblesWhenNotRetryable(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
         $attempts = 0;
 

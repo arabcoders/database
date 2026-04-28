@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace tests\Seeder;
 
 use arabcoders\database\Seeder\SeederRegistry;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SeederRegistryTest extends TestCase
 {

@@ -6,8 +6,8 @@ namespace tests\Schema;
 
 use arabcoders\database\Schema\SchemaRegistry;
 use arabcoders\database\Schema\Utils\NameHelper;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SchemaRegistryTest extends TestCase
 {

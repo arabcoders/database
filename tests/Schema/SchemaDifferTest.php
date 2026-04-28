@@ -24,7 +24,7 @@ use arabcoders\database\Schema\Operation\DropTableOperation;
 use arabcoders\database\Schema\Operation\RenameColumnOperation;
 use arabcoders\database\Schema\Operation\RenameTableOperation;
 use arabcoders\database\Schema\SchemaDiffer;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class SchemaDifferTest extends TestCase
 {

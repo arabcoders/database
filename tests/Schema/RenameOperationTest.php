@@ -6,7 +6,7 @@ namespace tests\Schema;
 
 use arabcoders\database\Schema\Operation\RenameColumnOperation;
 use arabcoders\database\Schema\Operation\RenameTableOperation;
-use PHPUnit\Framework\TestCase;
+use tests\TestCase;
 
 final class RenameOperationTest extends TestCase
 {

@@ -15,7 +15,6 @@ use arabcoders\database\Query\Condition;
 use arabcoders\database\Query\SelectQuery;
 use arabcoders\database\Schema\SchemaGenerator;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use tests\fixtures\BlogPostEntity;
 use tests\fixtures\BlogProfileEntity;
@@ -39,7 +38,7 @@ final class EntityRepositoryTest extends TestCase
 {
     public function testRepositoryInsertFindUpdateDelete(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -80,7 +79,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySaveInsertsWhenPrimaryKeyIsNull(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [NullableUserEntity::class]);
 
@@ -106,7 +105,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySaveWithMissingPrimaryKeyRowReturnsZero(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [NullableUserEntity::class]);
 
@@ -127,7 +126,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesOnCreateAndOnUpdateHooks(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [OnCreateUpdateEntity::class]);
 
@@ -154,7 +153,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryUpdateUsesDiffWhenAvailable(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [DiffUserEntity::class]);
 
@@ -183,7 +182,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryPreservesDirtyTrackedFieldsDuringIdentityMapRehydrationWhenEntityOptsIn(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [DirtyAwareUserEntity::class]);
 
@@ -215,7 +214,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryCrudWithBaseModelProtectedFields(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [ProtectedModelEntity::class]);
 
@@ -262,7 +261,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySupportsWhereCountAndExists(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -324,7 +323,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesValidators(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [ValidatedUserEntity::class]);
 
@@ -342,7 +341,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesDatabaseValidatorRules(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [ValidatedUserEntity::class]);
 
@@ -359,7 +358,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesMultipleValidators(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [ValidatedProfileEntity::class]);
 
@@ -377,7 +376,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testFindRequiresSinglePrimaryKey(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, MultiKeyEntity::class);
 
@@ -388,7 +387,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testUpdateRequiresPrimaryKey(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, NoPrimaryEntity::class);
         $entity = new NoPrimaryEntity();
@@ -400,7 +399,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testDeleteRequiresPrimaryKey(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, NoPrimaryEntity::class);
         $entity = new NoPrimaryEntity();
@@ -412,7 +411,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryEagerLoadsRelations(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [
             BlogUserEntity::class,
@@ -491,7 +490,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationLimitRequiresOrderBy(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogPostEntity::class]);
 
@@ -511,7 +510,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryManyToManyAttachDetachSyncToggle(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -576,7 +575,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryManyToManyDuplicateHandlingAndPivotUpdates(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -603,7 +602,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryManyToManyDuplicateUpdateAndIgnoreModes(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -646,7 +645,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySaveAndCreateRelatedForHasOneAndHasMany(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogPostEntity::class, BlogProfileEntity::class]);
 
@@ -696,7 +695,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAttachRejectsInvalidDuplicateBehavior(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -721,7 +720,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAttachRejectsInvalidPivotColumn(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -746,7 +745,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAttachRejectsNonArrayPivotPayload(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -771,7 +770,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationWriteRejectsUnsupportedRelationType(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, BlogUserEntity::class);
         $user = new BlogUserEntity();
@@ -783,7 +782,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationWriteRejectsUnknownRelation(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, BlogUserEntity::class);
         $user = new BlogUserEntity();
@@ -795,7 +794,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySaveRelatedRejectsWrongRelatedEntityClass(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class]);
 
@@ -814,7 +813,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationWriteRequiresRepositoryEntityType(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, BlogUserEntity::class);
 
@@ -825,7 +824,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationWriteRejectsUnmappedRelationKeys(): void
     {
-        $connection = new Connection(new PDO('sqlite::memory:'), new SqliteDialect());
+        $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
         $repo = new EntityRepository($connection, $factory, MisconfiguredRelationUserEntity::class);
 
@@ -850,7 +849,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryRelationWriteRequiresParentKey(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogTagEntity::class]);
         $pdo->exec('CREATE TABLE user_tags (user_id INTEGER, tag_id INTEGER, tagged_at TEXT)');
@@ -874,7 +873,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryEagerLoadOptionsCallable(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [BlogUserEntity::class, BlogPostEntity::class]);
 
@@ -901,7 +900,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySelectFetchHelpers(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
         $pdo->exec("INSERT INTO users (email, display_name) VALUES ('first@example.com', 'First')");
@@ -923,7 +922,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryInsertManyUpdatesManyDeletesMany(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -967,7 +966,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryInsertManyUsesTransaction(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -991,7 +990,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryBulkMethodsComposeWithOuterTransaction(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
         $pdo->exec('CREATE UNIQUE INDEX idx_users_email_unique ON users (email)');
@@ -1045,7 +1044,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryIdentityMapReturnsSameInstance(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -1068,7 +1067,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryFindByOrderAndPagination(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -1105,7 +1104,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySelectColumnsAndGroupByHelpers(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -1135,7 +1134,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryCursorAndChunkedByIdIterateEntities(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -1177,7 +1176,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositorySoftDeleteScopes(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [SoftDeleteUserEntity::class]);
 
@@ -1204,7 +1203,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesPhaseAwareValidators(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [PhaseValidatedEntity::class]);
 
@@ -1222,7 +1221,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryAppliesUpdateOnlyValidatorRules(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [PhaseValidatedEntity::class]);
 
@@ -1243,7 +1242,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryHydrateValidationIsOptIn(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [ValidatedUserEntity::class]);
         $pdo->exec("INSERT INTO validated_users (username) VALUES ('has space')");
@@ -1262,7 +1261,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryUpsertDefaultsToPrimaryKeyConflict(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
 
@@ -1287,7 +1286,7 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryUpsertManyWithConflictColumns(): void
     {
-        $pdo = new PDO('sqlite::memory:');
+        $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($pdo, [UserEntity::class]);
         $pdo->exec('CREATE UNIQUE INDEX idx_users_email_unique ON users (email)');
@@ -1319,11 +1318,11 @@ final class EntityRepositoryTest extends TestCase
 
     public function testRepositoryIsolationAcrossNamedConnections(): void
     {
-        $primaryPdo = new PDO('sqlite::memory:');
+        $primaryPdo = $this->memoryPdo();
         $primaryPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($primaryPdo, [UserEntity::class]);
 
-        $analyticsPdo = new PDO('sqlite::memory:');
+        $analyticsPdo = $this->memoryPdo();
         $analyticsPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->createSchema($analyticsPdo, [UserEntity::class]);
 

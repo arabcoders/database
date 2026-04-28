@@ -7,7 +7,6 @@ namespace tests;
 use arabcoders\database\Dialect\MysqlDialect;
 use arabcoders\database\Dialect\PostgresDialect;
 use arabcoders\database\Dialect\SqliteDialect;
-use PHPUnit\Framework\TestCase;
 
 final class DialectTest extends TestCase
 {

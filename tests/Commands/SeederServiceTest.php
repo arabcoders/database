@@ -10,8 +10,8 @@ use arabcoders\database\Seeder\SeederExecutionStatus;
 use arabcoders\database\Seeder\SeederRunMode;
 use arabcoders\database\Seeder\SeederTransactionMode;
 use PDO;
-use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use tests\TestCase;
 
 final class SeederServiceTest extends TestCase
 {
@@ -92,14 +92,6 @@ final class SeederServiceTest extends TestCase
 
         static::assertSame(['once_mode'], $this->entryNames($dryRun->executionEntries()));
         static::assertSame([SeederExecutionStatus::SKIPPED], $this->entryStatuses($dryRun->executionEntries()));
-    }
-
-    private function memoryPdo(): PDO
-    {
-        $pdo = new PDO('sqlite::memory:');
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        return $pdo;
     }
 
     private function createSeedItemsTable(PDO $pdo): void
