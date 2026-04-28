@@ -8,6 +8,7 @@ use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\ForeignKeyDefinition;
 use arabcoders\database\Schema\Definition\IndexDefinition;
+use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Operation\AddColumnOperation;
 use arabcoders\database\Schema\Operation\AddForeignKeyOperation;
 use arabcoders\database\Schema\Operation\AddIndexOperation;
@@ -19,6 +20,7 @@ use arabcoders\database\Schema\Operation\DropForeignKeyOperation;
 use arabcoders\database\Schema\Operation\DropIndexOperation;
 use arabcoders\database\Schema\Operation\DropPrimaryKeyOperation;
 use arabcoders\database\Schema\Operation\DropTableOperation;
+use arabcoders\database\Schema\Operation\RebuildTableOperation;
 use arabcoders\database\Schema\Operation\RenameColumnOperation;
 use arabcoders\database\Schema\Operation\RenameTableOperation;
 use arabcoders\database\Schema\Operation\SchemaOperation;
@@ -53,6 +55,7 @@ final class SchemaBlueprintMigrationExporter
         string $name,
         string|MigrationTemplate|null $template = null,
     ): string {
+        $plan = $this->prunePlan($plan);
         $upOperations = $plan->operations;
         $template = $this->resolveTemplate($template);
         $this->applyTemplateAliases($template);
@@ -82,6 +85,80 @@ final class SchemaBlueprintMigrationExporter
         $body = $this->renderOperations($operations, $indentLevel);
 
         return "\n" . $line . $body;
+    }
+
+    private function prunePlan(SchemaMigrationPlan $plan): SchemaMigrationPlan
+    {
+        [$fromTables, $toTables] = $this->collectRelevantTables($plan);
+
+        return new SchemaMigrationPlan(
+            $this->pruneSchema($plan->from, $fromTables),
+            $this->pruneSchema($plan->to, $toTables),
+            $plan->operations,
+        );
+    }
+
+    /**
+     * @return array{0:array<string,true>,1:array<string,true>}
+     */
+    private function collectRelevantTables(SchemaMigrationPlan $plan): array
+    {
+        $fromTables = [];
+        $toTables = [];
+
+        foreach ($plan->operations as $operation) {
+            if ($operation instanceof RenameTableOperation) {
+                $fromTables[$operation->from] = true;
+                $toTables[$operation->to] = true;
+                continue;
+            }
+
+            if ($operation instanceof RebuildTableOperation) {
+                $fromTables[$operation->from->name] = true;
+                $toTables[$operation->to->name] = true;
+                continue;
+            }
+
+            $tableName = $operation->getTableName();
+            if (null === $tableName) {
+                continue;
+            }
+
+            $fromTables[$tableName] = true;
+            $toTables[$tableName] = true;
+        }
+
+        foreach (array_keys($toTables) as $tableName) {
+            $table = $plan->to->getTable($tableName);
+            if (null === $table || null === $table->previousName || '' === $table->previousName) {
+                continue;
+            }
+
+            $fromTables[$table->previousName] = true;
+        }
+
+        return [$fromTables, $toTables];
+    }
+
+    /**
+     * @param array<string,true> $tableNames
+     */
+    private function pruneSchema(SchemaDefinition $schema, array $tableNames): SchemaDefinition
+    {
+        if ([] === $tableNames) {
+            return new SchemaDefinition();
+        }
+
+        $pruned = new SchemaDefinition();
+        foreach ($schema->getTables() as $tableName => $table) {
+            if (!isset($tableNames[$tableName])) {
+                continue;
+            }
+
+            $pruned->addTable($table);
+        }
+
+        return $pruned;
     }
 
     /**

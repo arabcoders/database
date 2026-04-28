@@ -57,6 +57,8 @@ final class MigrationSquasher
         }
 
         $combinedOperations = [];
+        $fromSchema = new SchemaDefinition();
+        $toSchema = new SchemaDefinition();
 
         // Use an in-memory PDO + Connection to execute migration callables into a Blueprint only
         $scratchPdo = new PDO('sqlite::memory:');
@@ -64,18 +66,15 @@ final class MigrationSquasher
         $scratchConnection = new Connection($scratchPdo, DialectFactory::fromPdo($scratchPdo));
 
         for ($i = $startIndex; $i <= $endIndex; $i++) {
-            $class = $definitions[$i]->class;
-            $instance = new $class();
-            if (!$instance instanceof SchemaBlueprintMigration) {
-                throw new RuntimeException(sprintf('Migration %s must extend %s.', $class, SchemaBlueprintMigration::class));
-            }
-
+            $instance = $this->createMigrationInstance($definitions[$i]->class);
             $blueprint = new Blueprint();
             $instance($scratchConnection, $blueprint);
-            $diff = $blueprint->toDiff();
-            $ops = $diff->getOperations();
 
-            foreach ($ops as $op) {
+            $diff = $blueprint->toDiff();
+            $this->mergeSchema($fromSchema, $diff->from);
+            $this->mergeSchema($toSchema, $diff->to);
+
+            foreach ($diff->getOperations() as $op) {
                 $combinedOperations[] = $op;
             }
         }
@@ -85,7 +84,7 @@ final class MigrationSquasher
         }
 
         $exporter = new SchemaBlueprintMigrationExporter();
-        $plan = new SchemaMigrationPlan(new SchemaDefinition(), new SchemaDefinition(), $combinedOperations);
+        $plan = new SchemaMigrationPlan($fromSchema, $toSchema, $combinedOperations);
 
         $latest = $definitions[$endIndex];
         $shortLatestClass = preg_replace('/.*\\\\/', '', $latest->class) ?: $latest->class;
@@ -149,5 +148,22 @@ final class MigrationSquasher
         }
 
         return $matches;
+    }
+
+    private function createMigrationInstance(string $class): SchemaBlueprintMigration
+    {
+        $instance = new $class();
+        if (!$instance instanceof SchemaBlueprintMigration) {
+            throw new RuntimeException(sprintf('Migration %s must extend %s.', $class, SchemaBlueprintMigration::class));
+        }
+
+        return $instance;
+    }
+
+    private function mergeSchema(SchemaDefinition $target, SchemaDefinition $source): void
+    {
+        foreach ($source->getTables() as $table) {
+            $target->addTable($table);
+        }
     }
 }
