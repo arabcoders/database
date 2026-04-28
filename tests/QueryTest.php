@@ -55,7 +55,7 @@ final class QueryTest extends TestCase
         return $query->where(Condition::equals($column, 'active'));
     }
 
-    public function testSelectQueryBuildsSql(): void
+    public function testSelectBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('users')
@@ -69,7 +69,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active'], $compiled['params']);
     }
 
-    public function testSelectQueryResolvesModelTable(): void
+    public function testSelectResolvesModelTable(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery(\tests\fixtures\UserEntity::class)
@@ -82,7 +82,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQueryBuildsComplexSql(): void
+    public function testSelectBuildsComplexSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('users')
@@ -108,7 +108,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 1], $compiled['params']);
     }
 
-    public function testSelectQueryClearsDefaultColumns(): void
+    public function testSelectClearsDefaultColumns(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('metrics')
@@ -120,7 +120,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQuerySelectCountColumnBuildsSql(): void
+    public function testSelectCountColumnBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new SelectQuery('widgets')
@@ -132,7 +132,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQuerySelectAvgSumMinMaxBuildsSql(): void
+    public function testSelectAvgSumMinMaxBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('metrics')
@@ -150,7 +150,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQuerySelectAggregateRejectsUnknownFunction(): void
+    public function testSelectRejectsUnknownAggregate(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('metrics');
@@ -166,7 +166,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testSelectQueryClearsDefaultColumnsWithSelectAs(): void
+    public function testSelectClearsDefaultColumnsWithSelectAs(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('metrics')
@@ -178,7 +178,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQueryFromSubqueryBuildsSql(): void
+    public function testSelectFromSubqueryBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $subquery = new SelectQuery('users')
@@ -199,7 +199,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 'user@example.com'], $compiled['params']);
     }
 
-    public function testSelectQueryJoinSubqueryBuildsSql(): void
+    public function testSelectJoinSubqueryBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $subquery = new SelectQuery('orders')
@@ -219,7 +219,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'open'], $compiled['params']);
     }
 
-    public function testSelectQueryWithCteBuildsSql(): void
+    public function testSelectWithCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('orders')
@@ -240,7 +240,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'open', ':p2' => 10], $compiled['params']);
     }
 
-    public function testSelectQueryWithRecursiveCteBuildsSql(): void
+    public function testSelectWithRecursiveCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('items')->select(['id']);
@@ -257,7 +257,7 @@ final class QueryTest extends TestCase
         );
     }
 
-    public function testSelectQueryUnionAllBuildsSql(): void
+    public function testSelectUnionAllBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $base = new SelectQuery('users')
@@ -280,7 +280,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 'active'], $compiled['params']);
     }
 
-    public function testSelectQueryUnionBuildsSql(): void
+    public function testSelectUnionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $base = new SelectQuery('users')
@@ -298,7 +298,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testSelectQueryIntersectBuildsSql(): void
+    public function testSelectIntersectBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $base = new SelectQuery('users')
@@ -317,7 +317,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active'], $compiled['params']);
     }
 
-    public function testSelectQueryExceptBuildsSql(): void
+    public function testSelectExceptBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $base = new SelectQuery('users')
@@ -336,7 +336,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active'], $compiled['params']);
     }
 
-    public function testSelectQueryIntersectNotSupportedForMysql(): void
+    public function testSelectIntersectNotSupportedForMysql(): void
     {
         $dialect = new MysqlDialect();
         $base = new SelectQuery('users')
@@ -351,7 +351,7 @@ final class QueryTest extends TestCase
         $base->toSql($dialect);
     }
 
-    public function testSelectQueryForUpdateBuildsSql(): void
+    public function testSelectForUpdateBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new SelectQuery('users')
@@ -364,7 +364,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 1], $compiled['params']);
     }
 
-    public function testSelectQueryForUpdateBuildsSqlForPostgres(): void
+    public function testSelectForUpdateBuildsSqlForPostgres(): void
     {
         $dialect = new PostgresDialect();
         $query = new SelectQuery('users')
@@ -377,7 +377,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 1], $compiled['params']);
     }
 
-    public function testSelectQueryLockInShareModeBuildsSql(): void
+    public function testSelectLockInShareModeBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new SelectQuery('users')
@@ -390,7 +390,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 1], $compiled['params']);
     }
 
-    public function testSelectQueryLockNotSupportedForSqlite(): void
+    public function testSelectLockNotSupportedForSqlite(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('users')
@@ -402,7 +402,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testSelectQuerySupportsJoinTypes(): void
+    public function testSelectSupportsJoinTypes(): void
     {
         $dialect = new SqliteDialect();
         $query = new SelectQuery('users', 'u')
@@ -420,7 +420,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testInsertQueryBuildsSql(): void
+    public function testInsertBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->values(['email' => 'test@example.com']);
@@ -430,7 +430,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'test@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryResolvesModelTable(): void
+    public function testInsertResolvesModelTable(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery(\tests\fixtures\UserEntity::class);
@@ -442,7 +442,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'hello'], $compiled['params']);
     }
 
-    public function testInsertQueryMultipleRowsBuildsSql(): void
+    public function testInsertMultipleRowsBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->rows([
@@ -462,7 +462,7 @@ final class QueryTest extends TestCase
         );
     }
 
-    public function testInsertQueryRowsRequireConsistentColumns(): void
+    public function testInsertRowsRequireConsistentColumns(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->rows([
@@ -475,7 +475,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryRowsRequireColumns(): void
+    public function testInsertRowsRequireColumns(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->rows([
@@ -487,7 +487,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryFromSelectBuildsSql(): void
+    public function testInsertFromSelectBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $select = new SelectQuery('users')
@@ -506,7 +506,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active'], $compiled['params']);
     }
 
-    public function testInsertQueryFromSelectRespectsClearedColumns(): void
+    public function testInsertFromSelectRespectsClearedColumns(): void
     {
         $dialect = new SqliteDialect();
         $select = new SelectQuery('source')
@@ -526,7 +526,7 @@ final class QueryTest extends TestCase
         static::assertSame([], $compiled['params']);
     }
 
-    public function testInsertQueryWithCteBuildsSql(): void
+    public function testInsertWithCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('users')
@@ -548,7 +548,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active'], $compiled['params']);
     }
 
-    public function testInsertQueryWithRecursiveCteBuildsSql(): void
+    public function testInsertWithRecursiveCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('items')
@@ -568,7 +568,7 @@ final class QueryTest extends TestCase
         );
     }
 
-    public function testInsertQueryFromSelectRequiresColumns(): void
+    public function testInsertFromSelectRequiresColumns(): void
     {
         $dialect = new SqliteDialect();
         $select = new SelectQuery('users')
@@ -582,7 +582,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryWithRawExpressionBuildsSql(): void
+    public function testInsertWithRawExpressionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->values([
@@ -599,7 +599,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'raw@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryWithUpsertSqliteBuildsSql(): void
+    public function testInsertWithSqliteUpsertBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -619,7 +619,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com', ':p2' => 'One'], $compiled['params']);
     }
 
-    public function testInsertQueryUpsertUpdatesWithScalarBuildsSql(): void
+    public function testInsertUpsertUpdatesWithScalarBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -638,7 +638,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com', ':p2' => 'Updated'], $compiled['params']);
     }
 
-    public function testInsertQueryWithUpsertDoNothingSqliteBuildsSql(): void
+    public function testInsertBuildsSqliteUpsertDoNothing(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -655,7 +655,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryWithUpsertConstraintNotSupportedForSqlite(): void
+    public function testInsertRejectsSqliteUpsertConstraint(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -668,7 +668,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryConflictConstraintRequiresName(): void
+    public function testInsertConflictConstraintRequiresName(): void
     {
         $query = new InsertQuery('users');
 
@@ -677,7 +677,7 @@ final class QueryTest extends TestCase
         $query->onConflictConstraint('');
     }
 
-    public function testInsertQueryUpsertRequiresConflictColumnsForSqliteUpdate(): void
+    public function testInsertSqliteUpsertNeedsConflictColumns(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -689,7 +689,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryUpsertDoNothingNotSupportedForMysql(): void
+    public function testInsertUpsertDoNothingNotSupportedForMysql(): void
     {
         $dialect = new MysqlDialect();
         $query = new InsertQuery('users')
@@ -701,7 +701,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryUpsertMysqlBuildsSql(): void
+    public function testInsertUpsertMysqlBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new InsertQuery('users')
@@ -719,7 +719,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com', ':p2' => 'One'], $compiled['params']);
     }
 
-    public function testInsertQueryUpsertHelperBuildsSql(): void
+    public function testInsertUpsertHelperBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -735,7 +735,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com', ':p2' => 'One'], $compiled['params']);
     }
 
-    public function testInsertQueryUpsertPostgresBuildsSql(): void
+    public function testInsertUpsertPostgresBuildsSql(): void
     {
         $dialect = new PostgresDialect();
         $query = new InsertQuery('users')
@@ -754,7 +754,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com', ':p2' => 'One'], $compiled['params']);
     }
 
-    public function testInsertQueryUpsertPostgresConstraintBuildsSql(): void
+    public function testInsertUpsertPostgresConstraintBuildsSql(): void
     {
         $dialect = new PostgresDialect();
         $query = new InsertQuery('users')
@@ -771,7 +771,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryUpsertPostgresRequiresTargetForUpdate(): void
+    public function testInsertPostgresUpsertNeedsTarget(): void
     {
         $dialect = new PostgresDialect();
         $query = new InsertQuery('users')
@@ -783,7 +783,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryReturningBuildsSql(): void
+    public function testInsertReturningBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -799,7 +799,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryReturningRawExpressionBuildsSql(): void
+    public function testInsertReturningRawExpressionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')
@@ -815,7 +815,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryReturningNotSupportedForMysql(): void
+    public function testInsertReturningNotSupportedForMysql(): void
     {
         $dialect = new MysqlDialect();
         $query = new InsertQuery('users')
@@ -827,7 +827,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryReturningSupportedForMysqlVersion(): void
+    public function testInsertReturningSupportedForMysqlVersion(): void
     {
         $dialect = new MysqlDialect('8.0.21');
         $query = new InsertQuery('users')
@@ -843,7 +843,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'one@example.com'], $compiled['params']);
     }
 
-    public function testInsertQueryWithEmptyValuesThrows(): void
+    public function testInsertWithEmptyValuesThrows(): void
     {
         $dialect = new SqliteDialect();
         $query = new InsertQuery('users')->values([]);
@@ -853,7 +853,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testInsertQueryWithRequiresName(): void
+    public function testInsertWithRequiresName(): void
     {
         $query = new InsertQuery('users');
         $select = new SelectQuery('users');
@@ -863,7 +863,7 @@ final class QueryTest extends TestCase
         $query->with('', $select);
     }
 
-    public function testUpdateQueryBuildsSql(): void
+    public function testUpdateBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -875,7 +875,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'new@example.com', ':p2' => 1], $compiled['params']);
     }
 
-    public function testUpdateQueryResolvesModelTable(): void
+    public function testUpdateResolvesModelTable(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery(\tests\fixtures\UserEntity::class);
@@ -887,7 +887,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'updated', ':p2' => 1], $compiled['params']);
     }
 
-    public function testUpdateQueryWithRawExpressionBuildsSql(): void
+    public function testUpdateWithRawExpressionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -899,7 +899,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 1], $compiled['params']);
     }
 
-    public function testUpdateQueryWithOrderAndLimitBuildsSql(): void
+    public function testUpdateWithOrderAndLimitBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -916,7 +916,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'inactive', ':p2' => 'guest'], $compiled['params']);
     }
 
-    public function testUpdateQueryWithCteBuildsSql(): void
+    public function testUpdateWithCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('users')
@@ -939,7 +939,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 'inactive'], $compiled['params']);
     }
 
-    public function testUpdateQueryWithJoinBuildsSql(): void
+    public function testUpdateWithJoinBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new UpdateQuery('users')
@@ -957,7 +957,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 'verified'], $compiled['params']);
     }
 
-    public function testUpdateQueryJoinNotSupportedForSqlite(): void
+    public function testUpdateJoinNotSupportedForSqlite(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -970,7 +970,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testUpdateQueryJoinBuildsSqlForPostgres(): void
+    public function testUpdateJoinBuildsSqlForPostgres(): void
     {
         $dialect = new PostgresDialect();
         $query = new UpdateQuery('users')
@@ -988,7 +988,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 'verified'], $compiled['params']);
     }
 
-    public function testUpdateQueryJoinRejectsNonInnerForPostgres(): void
+    public function testUpdateJoinRejectsNonInnerForPostgres(): void
     {
         $dialect = new PostgresDialect();
         $query = new UpdateQuery('users')
@@ -1002,7 +1002,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testUpdateQueryReturningBuildsSql(): void
+    public function testUpdateReturningBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -1018,7 +1018,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'inactive', ':p2' => 'guest'], $compiled['params']);
     }
 
-    public function testUpdateQueryReturningRawExpressionBuildsSql(): void
+    public function testUpdateReturningRawExpressionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -1035,7 +1035,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'inactive', ':p2' => 'guest'], $compiled['params']);
     }
 
-    public function testUpdateQueryReturningNotSupportedForMysql(): void
+    public function testUpdateReturningNotSupportedForMysql(): void
     {
         $dialect = new MysqlDialect();
         $query = new UpdateQuery('users')
@@ -1048,7 +1048,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testUpdateQueryReturningSupportedForMysqlVersion(): void
+    public function testUpdateReturningSupportedForMysqlVersion(): void
     {
         $dialect = new MysqlDialect('8.0.21');
         $query = new UpdateQuery('users')
@@ -1062,7 +1062,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'inactive', ':p2' => 'guest'], $compiled['params']);
     }
 
-    public function testUpdateQueryOrderByRawBuildsSql(): void
+    public function testUpdateOrderByRawBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new UpdateQuery('users')
@@ -1079,7 +1079,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'inactive', ':p2' => 'guest'], $compiled['params']);
     }
 
-    public function testDeleteQueryBuildsSql(): void
+    public function testDeleteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('users')->where(Condition::equals('id', 2));
@@ -1089,7 +1089,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 2], $compiled['params']);
     }
 
-    public function testDeleteQueryResolvesModelTable(): void
+    public function testDeleteResolvesModelTable(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery(\tests\fixtures\UserEntity::class);
@@ -1101,7 +1101,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 2], $compiled['params']);
     }
 
-    public function testDeleteQueryWithCteBuildsSql(): void
+    public function testDeleteWithCteBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $cte = new SelectQuery('logs')
@@ -1123,7 +1123,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryWithJoinBuildsSql(): void
+    public function testDeleteWithJoinBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $query = new DeleteQuery('logs')
@@ -1140,7 +1140,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'disabled'], $compiled['params']);
     }
 
-    public function testDeleteQueryJoinNotSupportedForSqlite(): void
+    public function testDeleteJoinNotSupportedForSqlite(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')
@@ -1152,7 +1152,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testDeleteQueryJoinBuildsSqlForPostgres(): void
+    public function testDeleteJoinBuildsSqlForPostgres(): void
     {
         $dialect = new PostgresDialect();
         $query = new DeleteQuery('logs')
@@ -1169,7 +1169,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => 'disabled'], $compiled['params']);
     }
 
-    public function testDeleteQueryJoinRejectsNonInnerForPostgres(): void
+    public function testDeleteJoinRejectsNonInnerForPostgres(): void
     {
         $dialect = new PostgresDialect();
         $query = new DeleteQuery('logs')
@@ -1182,7 +1182,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testDeleteQueryWithOrderAndLimitBuildsSql(): void
+    public function testDeleteWithOrderAndLimitBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')
@@ -1198,7 +1198,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryReturningBuildsSql(): void
+    public function testDeleteReturningBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')
@@ -1213,7 +1213,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryReturningRawExpressionBuildsSql(): void
+    public function testDeleteReturningRawExpressionBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')
@@ -1229,7 +1229,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryReturningNotSupportedForMysql(): void
+    public function testDeleteReturningNotSupportedForMysql(): void
     {
         $dialect = new MysqlDialect();
         $query = new DeleteQuery('logs')
@@ -1241,7 +1241,7 @@ final class QueryTest extends TestCase
         $query->toSql($dialect);
     }
 
-    public function testDeleteQueryReturningSupportedForMysqlVersion(): void
+    public function testDeleteReturningSupportedForMysqlVersion(): void
     {
         $dialect = new MysqlDialect('8.0.21');
         $query = new DeleteQuery('logs')
@@ -1254,7 +1254,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryOrderByRawBuildsSql(): void
+    public function testDeleteOrderByRawBuildsSql(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')
@@ -1270,7 +1270,7 @@ final class QueryTest extends TestCase
         static::assertSame([':p1' => '2024-01-01'], $compiled['params']);
     }
 
-    public function testDeleteQueryOrderByRawWithoutDirectionBuildsSql(): void
+    public function testDeleteOrderByRawWithoutDirection(): void
     {
         $dialect = new SqliteDialect();
         $query = new DeleteQuery('logs')

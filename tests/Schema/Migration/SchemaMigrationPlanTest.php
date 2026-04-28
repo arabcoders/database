@@ -17,7 +17,7 @@ use tests\TestCase;
 
 final class SchemaMigrationPlanTest extends TestCase
 {
-    public function testMigrationPlanSerializesAndRestores(): void
+    public function testPlanRoundTrips(): void
     {
         $from = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');

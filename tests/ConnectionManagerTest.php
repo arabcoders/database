@@ -12,7 +12,7 @@ use RuntimeException;
 
 final class ConnectionManagerTest extends TestCase
 {
-    public function testConnectionManagerRegistersAndResolvesConnections(): void
+    public function testManagerRegistersAndResolves(): void
     {
         $manager = new ConnectionManager();
         $default = new Connection($this->memoryPdo(), new SqliteDialect());
@@ -27,7 +27,7 @@ final class ConnectionManagerTest extends TestCase
         static::assertSame($analytics, $manager->get('analytics'));
     }
 
-    public function testConnectionManagerSupportsChangingDefaultConnection(): void
+    public function testManagerChangesDefault(): void
     {
         $manager = new ConnectionManager();
         $default = new Connection($this->memoryPdo(), new SqliteDialect());
@@ -42,7 +42,7 @@ final class ConnectionManagerTest extends TestCase
         static::assertSame($reporting, $manager->get());
     }
 
-    public function testConnectionManagerThrowsForUnknownConnection(): void
+    public function testThrowsForUnknownConnection(): void
     {
         $manager = new ConnectionManager();
         $manager->register('default', new Connection($this->memoryPdo(), new SqliteDialect()));
@@ -52,7 +52,7 @@ final class ConnectionManagerTest extends TestCase
         $manager->get('missing');
     }
 
-    public function testConnectionManagerTrimsNamesForLookupMethods(): void
+    public function testTrimsNamesForLookupMethods(): void
     {
         $manager = new ConnectionManager();
         $default = new Connection($this->memoryPdo(), new SqliteDialect());

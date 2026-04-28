@@ -129,7 +129,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testJsonPathNotInWithNoValuesReturnsTrueExpression(): void
+    public function testJsonPathNotInWithNoValuesIsTrue(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -178,7 +178,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags', ':p2' => '"alpha"', ':p3' => '$'], $params->all());
     }
 
-    public function testJsonArrayContainsWithEmptyValuesHonorsMode(): void
+    public function testArrayContainsWithEmptyValuesHonorsMode(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -225,7 +225,7 @@ final class ConditionTest extends TestCase
         $condition->toSql($dialect, $params);
     }
 
-    public function testVectorDistanceRequiresOperatorAndThreshold(): void
+    public function testVectorDistanceRequiresOperatorAndLimit(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -476,7 +476,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'Ada'], $params->all());
     }
 
-    public function testIsNotDistinctFromBuildsFallbackSqlForSqlite(): void
+    public function testIsNotDistinctFromBuildsSqliteFallback(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();

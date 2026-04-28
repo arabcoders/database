@@ -15,7 +15,7 @@ use tests\TestCase;
 
 final class PostgresDialectTest extends TestCase
 {
-    public function testPostgresDialectGeneratesSql(): void
+    public function testGeneratesSql(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition('id', ColumnType::Int, autoIncrement: true));
@@ -80,7 +80,7 @@ final class PostgresDialectTest extends TestCase
         static::assertTrue($dialect->supportsPrimaryKeyAlter());
     }
 
-    public function testUniqueIndexWithHashAlgorithmFallsBackToBtree(): void
+    public function testUniqueIndexHashFallsBackToBtree(): void
     {
         $dialect = new PostgresDialect();
 
@@ -155,7 +155,7 @@ final class PostgresDialectTest extends TestCase
         static::assertStringContainsString('"idx_users_email"', $sql);
     }
 
-    public function testPostgresDialectSupportsPartialAndExpressionIndexes(): void
+    public function testSupportsPartialAndExpression(): void
     {
         $dialect = new PostgresDialect();
 
@@ -172,7 +172,7 @@ final class PostgresDialectTest extends TestCase
         static::assertStringContainsString('WHERE deleted_at IS NULL', $sql);
     }
 
-    public function testPostgresDialectUsesProvidedNameForExpressionIndexes(): void
+    public function testKeepsExpressionIndexName(): void
     {
         $dialect = new PostgresDialect();
         $index = new IndexDefinition(
@@ -185,7 +185,7 @@ final class PostgresDialectTest extends TestCase
         static::assertStringContainsString('"idx_users_lower_email_custom"', $sql);
     }
 
-    public function testPostgresDialectRejectsVirtualGeneratedColumn(): void
+    public function testRejectsVirtualGeneratedColumn(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(

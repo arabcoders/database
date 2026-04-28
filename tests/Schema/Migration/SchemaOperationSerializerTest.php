@@ -28,7 +28,7 @@ use tests\TestCase;
 
 final class SchemaOperationSerializerTest extends TestCase
 {
-    public function testOperationSerializationRoundTrip(): void
+    public function testOpsRoundTrip(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(

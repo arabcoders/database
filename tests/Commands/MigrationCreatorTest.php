@@ -20,7 +20,7 @@ use tests\TestCase;
 
 final class MigrationCreatorTest extends TestCase
 {
-    public function testCreateAutogenRemainsBackwardCompatible(): void
+    public function testAutogenPreviewMatchesCurrentSql(): void
     {
         $pdo = $this->createSqliteConnection();
         $this->createUserProfileTable($pdo, includeDisplayName: false);
@@ -39,7 +39,7 @@ final class MigrationCreatorTest extends TestCase
         static::assertStringContainsString('"display_name" VARCHAR(255) NOT NULL', $sql);
     }
 
-    public function testCreateAutogenWithAugmenterRemovesExternalIndexDropsFromDraft(): void
+    public function testAutogenAugmenterRemovesExternalIndexDrops(): void
     {
         $pdo = $this->createSqliteConnection();
         $this->createUserProfileTable($pdo, includeDisplayName: false);
@@ -74,7 +74,7 @@ final class MigrationCreatorTest extends TestCase
         static::assertStringNotContainsString("dropIndex('idx_user_profile_email_lower_external'", $result->contents);
     }
 
-    public function testCreateAutogenWithAugmenterRecreatesExternalIndexesDuringSqliteRebuild(): void
+    public function testAutogenAugmenterRecreatesExternalIndexes(): void
     {
         $pdo = $this->createSqliteConnection();
         $this->createUserProfileTable($pdo, includeLegacy: true);
@@ -110,7 +110,7 @@ final class MigrationCreatorTest extends TestCase
         static::assertStringContainsString('CREATE INDEX "idx_user_profile_email_lower_external" ON "user_profile" ((lower(email)))', $sql);
     }
 
-    public function testExecutedAutogenMigrationPreservesExternalIndexesDuringSqliteRebuild(): void
+    public function testAutogenMigrationPreservesExternalIndexes(): void
     {
         $pdo = $this->createSqliteConnection();
         $this->createUserProfileTable($pdo, includeLegacy: true);

@@ -13,7 +13,7 @@ use tests\TestCase;
 
 final class MigrationServiceTest extends TestCase
 {
-    public function testListExposesChecksumAndLockInformation(): void
+    public function testListShowsChecksumAndLock(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -38,7 +38,7 @@ final class MigrationServiceTest extends TestCase
         static::assertNull($migration['error']);
     }
 
-    public function testListShowsChecksumMismatchVisibility(): void
+    public function testListShowsChecksumMismatch(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -54,7 +54,7 @@ final class MigrationServiceTest extends TestCase
         static::assertSame('Stored checksum does not match migration file.', $result->migrations[0]['error']);
     }
 
-    public function testListShowsActiveLockDetails(): void
+    public function testListShowsActiveLock(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -70,7 +70,7 @@ final class MigrationServiceTest extends TestCase
         static::assertSame(123, $result->lock['acquired_at']);
     }
 
-    public function testProbeExposesPendingMigrationsWithoutCreatingMetadataTables(): void
+    public function testProbeShowsPendingWithoutMetadataTables(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -87,7 +87,7 @@ final class MigrationServiceTest extends TestCase
         static::assertFalse($this->tableExists($pdo, 'migration_lock'));
     }
 
-    public function testProbeReportsChecksumIssuesWithoutThrowing(): void
+    public function testProbeShowsChecksumIssues(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

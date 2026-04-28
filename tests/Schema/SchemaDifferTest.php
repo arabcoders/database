@@ -87,7 +87,7 @@ final class SchemaDifferTest extends TestCase
         static::assertTrue($hasCreateTable);
     }
 
-    public function testDiffDetectsIndexesForeignKeysAndPrimaryKeyChanges(): void
+    public function testDiffDetectsIndexForeignKeyAndPrimaryKeyChanges(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');

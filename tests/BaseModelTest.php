@@ -93,7 +93,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['created']));
     }
 
-    public function testDiffTreatsEquivalentStringableValuesAsUnchanged(): void
+    public function testDiffTreatsEqualStringablesAsUnchanged(): void
     {
         $entity = StringableEntity::fromRow([
             'id' => 1,
@@ -106,7 +106,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['name']));
     }
 
-    public function testDiffSupportsDifferAttributeArrayCallable(): void
+    public function testDiffSupportsArrayDiffer(): void
     {
         $entity = DifferEntity::fromRow([
             'id' => 1,
@@ -119,7 +119,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['title']));
     }
 
-    public function testDiffSupportsDifferAttributeStringCallable(): void
+    public function testDiffSupportsStringDiffer(): void
     {
         $entity = DifferEntity::fromRow([
             'id' => 1,
@@ -167,7 +167,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testToArrayEncodeOmitsProtectedFieldsByDefault(): void
+    public function testToArrayEncodeOmitsProtectedByDefault(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,

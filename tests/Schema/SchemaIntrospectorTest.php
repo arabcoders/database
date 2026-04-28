@@ -16,7 +16,7 @@ use tests\TestCase;
 
 final class SchemaIntrospectorTest extends TestCase
 {
-    public function testSqliteIntrospectionBuildsSchema(): void
+    public function testBuildsSchema(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -44,7 +44,7 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertNotNull($foreignKey);
     }
 
-    public function testSqliteIntrospectionRoundTripHasStableDiffForAdvancedIndexes(): void
+    public function testSqliteRoundTripKeepsAdvancedIndexesStable(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -88,7 +88,7 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertSame('(lower(name))', $expression->expression);
     }
 
-    public function testSqliteIntrospectionCanIgnoreIndexesWithOptions(): void
+    public function testIgnoresIndexesWithOptions(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

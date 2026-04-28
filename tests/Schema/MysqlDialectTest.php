@@ -15,7 +15,7 @@ use tests\TestCase;
 
 final class MysqlDialectTest extends TestCase
 {
-    public function testMysqlDialectGeneratesSql(): void
+    public function testGeneratesSql(): void
     {
         $table = new TableDefinition(
             name: 'widgets',
@@ -131,7 +131,7 @@ final class MysqlDialectTest extends TestCase
         static::assertTrue($dialect->supportsPrimaryKeyAlter());
     }
 
-    public function testMysqlDialectRendersGeneratedAndExpressionIndex(): void
+    public function testRendersGeneratedAndExpressionIndex(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -163,7 +163,7 @@ final class MysqlDialectTest extends TestCase
         static::assertStringContainsString('(lower(name))', $indexSql);
     }
 
-    public function testMysqlDialectRejectsUnsupportedPredicateIndex(): void
+    public function testRejectsUnsupportedPredicateIndex(): void
     {
         $dialect = new MysqlDialect();
 

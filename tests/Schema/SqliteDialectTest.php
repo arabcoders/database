@@ -15,7 +15,7 @@ use tests\TestCase;
 
 final class SqliteDialectTest extends TestCase
 {
-    public function testSqliteDialectGeneratesSql(): void
+    public function testGeneratesSql(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition('id', ColumnType::Int, autoIncrement: true));
@@ -115,7 +115,7 @@ final class SqliteDialectTest extends TestCase
         static::assertStringContainsString('CREATE INDEX', $joined);
     }
 
-    public function testSqliteDialectSupportsPartialAndExpressionIndexes(): void
+    public function testSupportsPartialAndExpressionIndexes(): void
     {
         $dialect = new SqliteDialect();
 
@@ -134,7 +134,7 @@ final class SqliteDialectTest extends TestCase
         static::assertStringContainsString('((lower(name)))', $expressionSql);
     }
 
-    public function testSqliteDialectRejectsUnsupportedIndexType(): void
+    public function testRejectsUnsupportedIndexType(): void
     {
         $dialect = new SqliteDialect();
 

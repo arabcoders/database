@@ -43,7 +43,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('sideways');
     }
 
-    public function testRunnerCreatesVersionTableForPostgres(): void
+    public function testRunnerCreatesPostgresVersionTable(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('pgsql');
@@ -80,7 +80,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertTrue($matched);
     }
 
-    public function testRunnerThrowsWhenChecksumDoesNotMatchAppliedMigration(): void
+    public function testRunnerFailsOnChecksumMismatch(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -95,7 +95,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('up', true);
     }
 
-    public function testRunnerRepairsChecksumForNumericStringMigrationVersion(): void
+    public function testRunnerRepairsChecksum(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -116,7 +116,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertNull($migrations[0]['error']);
     }
 
-    public function testRunnerThrowsWhenMigrationLockIsAlreadyHeld(): void
+    public function testRunnerFailsWhenLockIsHeld(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -131,7 +131,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('up', false);
     }
 
-    public function testRunnerProbeReturnsPendingWithoutCreatingMetadataTables(): void
+    public function testProbeShowsPendingWithoutMetadataTables(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -150,7 +150,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertFalse($this->tableExists($pdo, 'migration_lock'));
     }
 
-    public function testRunnerProbeReturnsCurrentLockStateWithoutMutatingVersionTable(): void
+    public function testProbeShowsCurrentLockWithoutVersionTable(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

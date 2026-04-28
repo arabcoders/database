@@ -22,7 +22,7 @@ final class ConnectionTest extends TestCase
      */
     private array $cacheStore = [];
 
-    public function testConnectionProvidesDialectAndFetchesResults(): void
+    public function testProvidesDialectAndFetchesResults(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -50,7 +50,7 @@ final class ConnectionTest extends TestCase
         static::assertSame(1, (int) $rows[0]['id']);
     }
 
-    public function testConnectionThrowsWhenPrepareFails(): void
+    public function testThrowsWhenPrepareFails(): void
     {
         $pdo = $this->memoryPdo(FailingPdo::class);
         $connection = new Connection($pdo, new SqliteDialect());
@@ -60,7 +60,7 @@ final class ConnectionTest extends TestCase
         $connection->fetchOne(new SelectQuery('widgets'));
     }
 
-    public function testConnectionUsesCacheWhenProvided(): void
+    public function testUsesCacheWhenProvided(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -85,7 +85,7 @@ final class ConnectionTest extends TestCase
         static::assertSame(['widgets.by_name' => $first], $this->cacheStore);
     }
 
-    public function testConnectionCursorAndChunkedIterateRows(): void
+    public function testCursorAndChunkedIterateRows(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -112,7 +112,7 @@ final class ConnectionTest extends TestCase
         static::assertSame([['One', 'Two'], ['Three']], $chunks);
     }
 
-    public function testTransactionCommitsAtTopLevel(): void
+    public function testCommitsAtTopLevel(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -132,7 +132,7 @@ final class ConnectionTest extends TestCase
         static::assertSame('Committed', $rows[0]['name']);
     }
 
-    public function testTransactionNestedCommitUsesSavepoints(): void
+    public function testNestedCommitUsesSavepoints(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -151,7 +151,7 @@ final class ConnectionTest extends TestCase
         static::assertSame(['outer', 'inner'], array_map(static fn(array $row): string => (string) $row['name'], $rows));
     }
 
-    public function testTransactionNestedRollbackOnlyRollsBackInnerWork(): void
+    public function testNestedRollbackOnlyRollsBackInnerWork(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -177,7 +177,7 @@ final class ConnectionTest extends TestCase
         static::assertSame(['outer-before', 'outer-after'], array_map(static fn(array $row): string => (string) $row['name'], $rows));
     }
 
-    public function testTransactionBubblesExceptionAndRollsBackTopLevel(): void
+    public function testBubblesExceptionAndRollsBackTopLevel(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -200,7 +200,7 @@ final class ConnectionTest extends TestCase
         static::assertCount(0, $rows);
     }
 
-    public function testTransactionRetryRetriesAndReturnsResult(): void
+    public function testRetryRetriesAndReturnsResult(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -228,7 +228,7 @@ final class ConnectionTest extends TestCase
         static::assertSame('after-retry', $rows[0]['name']);
     }
 
-    public function testTransactionRetryBubblesWhenNotRetryable(): void
+    public function testRetryBubblesWhenNotRetryable(): void
     {
         $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());

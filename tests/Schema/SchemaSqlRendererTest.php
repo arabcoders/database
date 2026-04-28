@@ -24,7 +24,7 @@ use tests\TestCase;
 
 final class SchemaSqlRendererTest extends TestCase
 {
-    public function testSqliteRendererUsesRebuildForColumnChanges(): void
+    public function testSqliteUsesRebuildForColumnChanges(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -56,7 +56,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertTrue($hasRename);
     }
 
-    public function testMysqlRendererGeneratesSqlForOperations(): void
+    public function testMysqlGeneratesSqlForOperations(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -100,7 +100,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('DROP COLUMN', $downSql);
     }
 
-    public function testMysqlRendererDefersForeignKeysUntilAllTablesAreCreated(): void
+    public function testMysqlDefersForeignKeysUntilCreateDone(): void
     {
         $fromSchema = new SchemaDefinition();
 
@@ -158,7 +158,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertLessThan($dropBarPos, $dropConstraintPos);
     }
 
-    public function testPostgresRendererDefersForeignKeysUntilAllTablesAreCreated(): void
+    public function testPostgresDefersForeignKeysUntilCreateDone(): void
     {
         $fromSchema = new SchemaDefinition();
 
@@ -216,7 +216,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertLessThan($dropBarPos, $dropConstraintPos);
     }
 
-    public function testMysqlRendererHandlesRenameOperations(): void
+    public function testMysqlHandlesRenameOperations(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('legacy_widgets');
@@ -242,7 +242,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('RENAME COLUMN `fieldFoo` TO `field_foo`', $upSql);
     }
 
-    public function testMysqlRendererSupportsEnumSetAndChecks(): void
+    public function testMysqlSupportsEnumSetAndChecks(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -273,7 +273,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('CHECK (score >= 0)', $sql);
     }
 
-    public function testPostgresRendererSupportsConstraintsAndNetworkTypes(): void
+    public function testPostgresSupportsConstraintsAndNetworkTypes(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -310,7 +310,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('CHECK (score >= 0)', $sql);
     }
 
-    public function testSqliteRendererSupportsChecks(): void
+    public function testSqliteSupportsChecks(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -332,7 +332,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('CHECK (score >= 0)', $sql);
     }
 
-    public function testSqliteRendererHandlesRenameColumn(): void
+    public function testSqliteHandlesRenameColumn(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -366,7 +366,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertSame('widgets', $operation->getTableName());
     }
 
-    public function testRendererFlattensArrayReturnsFromDialect(): void
+    public function testFlattensArrayReturnsFromDialect(): void
     {
         // Test that SchemaSqlRenderer properly flattens arrays returned from dialect methods
         $diff = new SchemaDiff(new SchemaDefinition(), new SchemaDefinition(), [
@@ -396,7 +396,7 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertStringContainsString('USING BTREE', $upSql);
     }
 
-    public function testRendererCanRollbackDroppedIndexesWhenBlueprintKeepsMetadata(): void
+    public function testRollsBackDroppedIndexesWithMetadata(): void
     {
         $blueprint = new Blueprint();
         $blueprint->table('widgets', static function ($table): void {

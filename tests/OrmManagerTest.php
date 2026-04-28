@@ -39,7 +39,7 @@ final class OrmManagerTest extends TestCase
         static::assertNotSame($repo, $manager->repository(UserEntity::class));
     }
 
-    public function testOrmManagerResolvesRepositoriesByConnectionName(): void
+    public function testOrmManagerResolvesByConnectionName(): void
     {
         $defaultPdo = $this->memoryPdo();
         $analyticsPdo = $this->memoryPdo();
@@ -61,7 +61,7 @@ final class OrmManagerTest extends TestCase
         static::assertSame($analyticsConnection, $analyticsRepo->connection());
     }
 
-    public function testOrmManagerUsingConnectionSwitchesDefaultRepositoryConnection(): void
+    public function testOrmManagerUsingConnectionSwitchesDefault(): void
     {
         $defaultPdo = $this->memoryPdo();
         $reportingPdo = $this->memoryPdo();
@@ -91,7 +91,7 @@ final class OrmManagerTest extends TestCase
         $manager->repository(UserEntity::class, 'analytics');
     }
 
-    public function testOrmManagerDefaultResolutionTracksConnectionManagerDefault(): void
+    public function testOrmManagerTracksManagerDefault(): void
     {
         $defaultPdo = $this->memoryPdo();
         $analyticsPdo = $this->memoryPdo();

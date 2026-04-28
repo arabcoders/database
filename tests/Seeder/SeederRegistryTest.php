@@ -10,7 +10,7 @@ use tests\TestCase;
 
 final class SeederRegistryTest extends TestCase
 {
-    public function testRegistryRejectsDuplicateSeederNames(): void
+    public function testRejectsDuplicateSeederNames(): void
     {
         $registry = new SeederRegistry([$this->fixturePath('Duplicate')]);
 

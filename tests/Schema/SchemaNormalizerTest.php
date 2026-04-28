@@ -91,7 +91,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(ColumnType::SmallInt, $smallCol->type);
     }
 
-    public function testNormalizePostgresConvertsUniqueHashIndexToBtree(): void
+    public function testNormalizePostgresConvertsUniqueHashToBtree(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');
@@ -140,7 +140,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(['pgsql' => 'hash'], $nonUniqueHash->algorithm);
     }
 
-    public function testNormalizePostgresConvertsLongTextAndMediumTextToText(): void
+    public function testNormalizePostgresConvertsLongAndMediumText(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');

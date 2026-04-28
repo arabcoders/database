@@ -14,7 +14,7 @@ use tests\TestCase;
 
 final class SchemaGeneratorTest extends TestCase
 {
-    public function testGenerateSchemaBySchemaDialectClassName(): void
+    public function testGenerateBySchemaDialectClassName(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, SchemaSqliteDialect::class);
 
@@ -22,7 +22,7 @@ final class SchemaGeneratorTest extends TestCase
         static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
     }
 
-    public function testGenerateSchemaByDatabaseDialectClassName(): void
+    public function testGenerateByDatabaseDialectClassName(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, QuerySqliteDialect::class);
 
@@ -30,7 +30,7 @@ final class SchemaGeneratorTest extends TestCase
         static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
     }
 
-    public function testGenerateSchemaByDriverName(): void
+    public function testGenerateByDriverName(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, 'sqlite');
 
@@ -38,7 +38,7 @@ final class SchemaGeneratorTest extends TestCase
         static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
     }
 
-    public function testGenerateSchemaByDialectInstance(): void
+    public function testGenerateByDialectInstance(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, new SchemaSqliteDialect());
 
@@ -71,7 +71,7 @@ final class SchemaGeneratorTest extends TestCase
         static::assertTrue($schema->hasTable('posts'));
     }
 
-    public function testGenerateSchemaRejectsModelWithoutTableAttribute(): void
+    public function testGenerateRejectsModelWithoutTableAttribute(): void
     {
         $this->expectException(RuntimeException::class);
 

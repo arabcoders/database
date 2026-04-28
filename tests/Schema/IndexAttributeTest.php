@@ -10,7 +10,7 @@ use tests\TestCase;
 
 final class IndexAttributeTest extends TestCase
 {
-    public function testIndexAttributeSupportsPredicateAndExpression(): void
+    public function testIndexSupportsPredicateAndExpression(): void
     {
         $index = new Index(where: 'deleted_at IS NULL', expression: '(lower(email))');
 
@@ -18,7 +18,7 @@ final class IndexAttributeTest extends TestCase
         static::assertSame('(lower(email))', $index->expression);
     }
 
-    public function testUniqueAttributeSupportsPredicateAndExpression(): void
+    public function testUniqueSupportsPredicateAndExpression(): void
     {
         $unique = new Unique(where: 'tenant_id IS NOT NULL', expression: '(lower(name))');
 

@@ -26,7 +26,7 @@ use tests\fixtures\ValidatedUserEntity;
 
 final class EntityMetadataFactoryTest extends TestCase
 {
-    public function testMetadataFactoryBuildsMappings(): void
+    public function testBuildsMappings(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(UserEntity::class);
@@ -44,7 +44,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertSame(['id'], $meta->autoIncrementKeys);
     }
 
-    public function testMetadataFactoryRegistersColumnHooks(): void
+    public function testRegistersColumnHooks(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(OnCreateUpdateEntity::class);
@@ -59,7 +59,7 @@ final class EntityMetadataFactoryTest extends TestCase
         );
     }
 
-    public function testMetadataFactoryRegistersValidators(): void
+    public function testRegistersValidators(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(ValidatedUserEntity::class);
@@ -69,7 +69,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertIsCallable($meta->validatorsByProperty['username'][0]['callable']);
     }
 
-    public function testMetadataFactoryRegistersMultipleValidators(): void
+    public function testRegistersMultipleValidators(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(ValidatedProfileEntity::class);
@@ -78,7 +78,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertCount(3, $meta->validatorsByProperty['username']);
     }
 
-    public function testMetadataFactoryRegistersPhaseAwareValidators(): void
+    public function testRegistersPhaseAwareValidators(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(PhaseValidatedEntity::class);
@@ -89,7 +89,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertContains(\arabcoders\database\Validator\ValidationType::CREATE, $meta->validatorsByProperty['username'][0]['types']);
     }
 
-    public function testMetadataFactoryRejectsInvalidValidatorTypeArray(): void
+    public function testRejectsInvalidValidatorTypes(): void
     {
         $factory = new EntityMetadataFactory();
 
@@ -98,7 +98,7 @@ final class EntityMetadataFactoryTest extends TestCase
         $factory->fromClass(InvalidValidationTypeEntity::class);
     }
 
-    public function testMetadataFactoryInfersNullableTransformArgument(): void
+    public function testInfersNullableTransformArg(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(AutoNullableTransformEntity::class);
@@ -108,7 +108,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertNull($transform(TransformType::ENCODE, null));
     }
 
-    public function testMetadataFactoryRequiresTableAttribute(): void
+    public function testRequiresTableAttribute(): void
     {
         $factory = new EntityMetadataFactory();
 
@@ -117,7 +117,7 @@ final class EntityMetadataFactoryTest extends TestCase
         $factory->fromClass(NoTableEntity::class);
     }
 
-    public function testMetadataFactoryRequiresColumnMappings(): void
+    public function testRequiresColumnMappings(): void
     {
         $factory = new EntityMetadataFactory();
 
@@ -126,7 +126,7 @@ final class EntityMetadataFactoryTest extends TestCase
         $factory->fromClass(NoColumnEntity::class);
     }
 
-    public function testMetadataFactoryBuildsRelations(): void
+    public function testBuildsRelations(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(BlogUserEntity::class);
@@ -163,7 +163,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertSame('id', $belongsTo->localKey);
     }
 
-    public function testMetadataFactoryRegistersSoftDelete(): void
+    public function testRegistersSoftDelete(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(SoftDeleteUserEntity::class);
