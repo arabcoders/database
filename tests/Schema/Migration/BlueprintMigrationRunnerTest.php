@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Schema\Migration;
 
+use arabcoders\database\DatabaseException;
 use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
 use arabcoders\database\Schema\Migration\MigrationChecksumMismatchException;
 use arabcoders\database\Schema\Migration\MigrationLockException;
@@ -11,6 +12,7 @@ use arabcoders\database\Schema\Migration\MigrationRegistry;
 use PDO;
 use PDOStatement;
 use ReflectionClass;
+use tests\fixtures\FailingPdo;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
 use tests\TestCase;
 
@@ -167,6 +169,24 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertSame('other-runner', $result['lock']['holder']);
         static::assertSame(1, $result['lock']['acquired_at']);
         static::assertFalse($this->tableExists($pdo, 'migration_version'));
+    }
+
+    public function testRunnerWrapsMetadataQueryErrors(): void
+    {
+        $pdo = $this->memoryPdo(FailingPdo::class);
+        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
+
+        try {
+            $runner->lockInfo();
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame(
+                'SELECT holder, acquired_at FROM migration_lock WHERE lock_key = :lock_key LIMIT 1',
+                $exception->getQueryString(),
+            );
+            static::assertSame([], $exception->getQueryBind());
+        }
     }
 
     private function tableExists(PDO $pdo, string $name): bool

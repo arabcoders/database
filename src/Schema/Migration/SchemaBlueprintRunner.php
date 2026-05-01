@@ -6,6 +6,7 @@ namespace arabcoders\database\Schema\Migration;
 
 use arabcoders\database\Connection;
 use arabcoders\database\Dialect\DialectFactory;
+use arabcoders\database\PdoOperations;
 use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
 use arabcoders\database\Schema\SchemaSqlRenderer;
@@ -14,9 +15,13 @@ use RuntimeException;
 
 final readonly class SchemaBlueprintRunner
 {
+    use PdoOperations;
+
     public function __construct(
         private PDO $pdo,
-    ) {}
+    ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
 
     /**
      * Run the operation and return execution results.
@@ -48,7 +53,7 @@ final readonly class SchemaBlueprintRunner
                 continue;
             }
 
-            $this->pdo->exec($statement);
+            $this->pdoExec($statement);
         }
     }
 }

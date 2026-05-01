@@ -119,6 +119,8 @@ It:
 - Tracks both `executed` and `failed` runs.
 - Powers `once` checks and `rebuild` behavior.
 
+Low-level database failures during seeding throw `arabcoders\database\DatabaseException`.
+
 ## Filtering and Selection
 
 `SeederService` supports:

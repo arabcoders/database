@@ -9,6 +9,7 @@ use arabcoders\database\Query\CacheableQueryInterface;
 use arabcoders\database\Query\CachedQuery;
 use arabcoders\database\Query\QueryInterface;
 use PDO;
+use PDOException;
 use PDOStatement;
 use Psr\SimpleCache\CacheInterface;
 use RuntimeException;
@@ -16,12 +17,14 @@ use Throwable;
 
 final class Connection
 {
+    use PdoOperations;
+
     private ?CacheInterface $cache = null;
     private int $transactionDepth = 0;
     private int $savepointCounter = 0;
 
     public function __construct(
-        private PDO $pdo,
+        private(set) PDO $pdo,
         private DialectInterface $dialect,
     ) {
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -48,9 +51,14 @@ final class Connection
             }
         }
 
-        $stmt = $this->prepare($query);
-        $stmt->execute();
-        $rows = $stmt->fetchAll();
+        $prepared = $this->prepare($query);
+
+        try {
+            $prepared['stmt']->execute();
+            $rows = $prepared['stmt']->fetchAll();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $prepared['sql'], $prepared['params']);
+        }
 
         if ($query instanceof CacheableQueryInterface) {
             $this->writeCache($query, $rows);
@@ -78,10 +86,15 @@ final class Connection
             }
         }
 
-        $stmt = $this->prepare($query);
-        $stmt->execute();
+        $prepared = $this->prepare($query);
 
-        $row = $stmt->fetch();
+        try {
+            $prepared['stmt']->execute();
+            $row = $prepared['stmt']->fetch();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $prepared['sql'], $prepared['params']);
+        }
+
         $result = false === $row ? null : $row;
 
         if ($query instanceof CacheableQueryInterface) {
@@ -99,10 +112,15 @@ final class Connection
      */
     public function execute(QueryInterface $query): int
     {
-        $stmt = $this->prepare($query);
-        $stmt->execute();
+        $prepared = $this->prepare($query);
 
-        return $stmt->rowCount();
+        try {
+            $prepared['stmt']->execute();
+
+            return $prepared['stmt']->rowCount();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $prepared['sql'], $prepared['params']);
+        }
     }
 
     /**
@@ -143,11 +161,20 @@ final class Connection
      */
     public function cursor(QueryInterface $query): \Generator
     {
-        $stmt = $this->prepare($query);
-        $stmt->execute();
+        $prepared = $this->prepare($query);
 
-        while (false !== ($row = $stmt->fetch())) {
-            yield $row;
+        try {
+            $prepared['stmt']->execute();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $prepared['sql'], $prepared['params']);
+        }
+
+        try {
+            while (false !== ($row = $prepared['stmt']->fetch())) {
+                yield $row;
+            }
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $prepared['sql'], $prepared['params']);
         }
     }
 
@@ -193,26 +220,39 @@ final class Connection
 
     public function lastInsertId(): string
     {
-        return $this->pdo->lastInsertId();
+        return $this->pdoLastInsertId();
     }
 
     public function execRaw(string $sql, array $params = []): int
     {
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->rowCount();
+        $stmt = $this->pdoPrepare($sql, $params);
+
+        try {
+            $stmt->execute($params);
+
+            return $stmt->rowCount();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $sql, $params);
+        }
     }
 
     public function fetchAllRaw(string $sql, array $params = []): array
     {
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
+        $stmt = $this->pdoPrepare($sql, $params);
+
+        try {
+            $stmt->execute($params);
+
+            return $stmt->fetchAll();
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $sql, $params);
+        }
     }
 
     public function beginTransaction(): void
     {
-        $this->pdo->beginTransaction();
+        $this->pdoBeginTransaction();
+
         $this->transactionDepth = 1;
     }
 
@@ -227,7 +267,8 @@ final class Connection
             return;
         }
 
-        $this->pdo->commit();
+        $this->pdoCommit();
+
         $this->transactionDepth = 0;
     }
 
@@ -242,7 +283,8 @@ final class Connection
             return;
         }
 
-        $this->pdo->rollBack();
+        $this->pdoRollBack();
+
         $this->transactionDepth = 0;
     }
 
@@ -264,8 +306,7 @@ final class Connection
         $savepoint = null;
 
         if ($ownsTransaction) {
-            $this->pdo->beginTransaction();
-            $this->transactionDepth = 1;
+            $this->beginTransaction();
         } else {
             $savepoint = $this->createSavepoint();
             $this->transactionDepth += 1;
@@ -277,7 +318,7 @@ final class Connection
             if (null !== $savepoint) {
                 $this->releaseSavepoint($savepoint);
             } elseif ($this->pdo->inTransaction()) {
-                $this->pdo->commit();
+                $this->commit();
             }
 
             return $result;
@@ -286,8 +327,7 @@ final class Connection
                 $this->rollbackToSavepoint($savepoint);
                 $this->releaseSavepoint($savepoint);
             } elseif ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
-                $this->transactionDepth = 0;
+                $this->rollBack();
             }
 
             throw $exception;
@@ -340,44 +380,53 @@ final class Connection
         throw new RuntimeException('Transaction retry exhausted unexpectedly.');
     }
 
-    private function prepare(QueryInterface $query): PDOStatement
+    /**
+     * @return array{stmt:PDOStatement,sql:string,params:array<string,mixed>}
+     */
+    private function prepare(QueryInterface $query): array
     {
         $compiled = $query->toSql($this->dialect);
-        $stmt = $this->pdo->prepare($compiled['sql']);
-        if (!$stmt instanceof PDOStatement) {
-            throw new RuntimeException('Unable to prepare statement.');
+
+        $stmt = $this->pdoPrepare($compiled['sql'], $compiled['params']);
+
+        try {
+            foreach ($compiled['params'] as $key => $value) {
+                $type = match (true) {
+                    is_int($value) => PDO::PARAM_INT,
+                    is_bool($value) => PDO::PARAM_BOOL,
+                    null === $value => PDO::PARAM_NULL,
+                    default => PDO::PARAM_STR,
+                };
+                $stmt->bindValue($key, $value, $type);
+            }
+        } catch (PDOException $exception) {
+            throw DatabaseException::fromPdo($exception, $compiled['sql'], $compiled['params']);
         }
 
-        foreach ($compiled['params'] as $key => $value) {
-            $type = match (true) {
-                is_int($value) => PDO::PARAM_INT,
-                is_bool($value) => PDO::PARAM_BOOL,
-                null === $value => PDO::PARAM_NULL,
-                default => PDO::PARAM_STR,
-            };
-            $stmt->bindValue($key, $value, $type);
-        }
-
-        return $stmt;
+        return [
+            'stmt' => $stmt,
+            'sql' => $compiled['sql'],
+            'params' => $compiled['params'],
+        ];
     }
 
     private function createSavepoint(): string
     {
         $name = 'db_sp_' . $this->savepointCounter;
         $this->savepointCounter += 1;
-        $this->pdo->exec('SAVEPOINT ' . $name);
+        $this->pdoExec('SAVEPOINT ' . $name);
 
         return $name;
     }
 
     private function rollbackToSavepoint(string $savepoint): void
     {
-        $this->pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+        $this->pdoExec('ROLLBACK TO SAVEPOINT ' . $savepoint);
     }
 
     private function releaseSavepoint(string $savepoint): void
     {
-        $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        $this->pdoExec('RELEASE SAVEPOINT ' . $savepoint);
     }
 
     private function defaultRetryDecider(Throwable $exception): bool

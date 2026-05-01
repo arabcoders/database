@@ -6,18 +6,22 @@ namespace arabcoders\database\Seeder;
 
 use arabcoders\database\Connection;
 use arabcoders\database\Dialect\DialectFactory;
+use arabcoders\database\PdoOperations;
 use PDO;
 use RuntimeException;
 use Throwable;
 
 final class SeederExecutor
 {
+    use PdoOperations;
+
     private SeederExecutionHistory $history;
 
     public function __construct(
         private PDO $pdo,
         ?SeederExecutionHistory $history = null,
     ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->history = $history ?? new SeederExecutionHistory($pdo);
     }
 
@@ -63,7 +67,7 @@ final class SeederExecutor
         $historyId = null;
         try {
             if (SeederTransactionMode::PER_SEEDER === $transactionMode) {
-                $this->pdo->beginTransaction();
+                $this->pdoBeginTransaction();
             }
 
             $this->run($definition->class);
@@ -71,11 +75,11 @@ final class SeederExecutor
             $historyId = $this->history->insert($definition, SeederExecutionStatus::EXECUTED, $mode);
 
             if (SeederTransactionMode::PER_SEEDER === $transactionMode && $this->pdo->inTransaction()) {
-                $this->pdo->commit();
+                $this->pdoCommit();
             }
         } catch (Throwable $exception) {
             if (SeederTransactionMode::PER_SEEDER === $transactionMode && $this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+                $this->pdoRollBack();
             }
             $this->history->insert($definition, SeederExecutionStatus::FAILED, $mode, $exception->getMessage());
             throw $exception;

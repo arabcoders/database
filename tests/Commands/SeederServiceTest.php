@@ -6,6 +6,7 @@ namespace tests\Commands;
 
 use arabcoders\database\Commands\SeederRequest;
 use arabcoders\database\Commands\SeederService;
+use arabcoders\database\DatabaseException;
 use arabcoders\database\Seeder\SeederExecutionStatus;
 use arabcoders\database\Seeder\SeederRunMode;
 use arabcoders\database\Seeder\SeederTransactionMode;
@@ -92,6 +93,23 @@ final class SeederServiceTest extends TestCase
 
         static::assertSame(['once_mode'], $this->entryNames($dryRun->executionEntries()));
         static::assertSame([SeederExecutionStatus::SKIPPED], $this->entryStatuses($dryRun->executionEntries()));
+    }
+
+    public function testWrapsSeederHistoryErrorsWithSqlAndParams(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createSeedItemsTable($pdo);
+        $service = new SeederService($pdo, $this->fixturePath('RunModes'));
+
+        $pdo->exec('DROP TABLE seed_items');
+
+        try {
+            $service->run(new SeederRequest(classFilter: 'always_mode', dryRun: false));
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame('INSERT INTO seed_items (label) VALUES (\'always\')', $exception->getQueryString());
+            static::assertSame([], $exception->getQueryBind());
+        }
     }
 
     private function createSeedItemsTable(PDO $pdo): void

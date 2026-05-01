@@ -4,22 +4,28 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Seeder;
 
+use arabcoders\database\PdoOperations;
 use PDO;
+use PDOException;
 use Throwable;
 
 final class SeederExecutionHistory
 {
+    use PdoOperations;
+
     public function __construct(
         private PDO $pdo,
         private string $table = 'seeder_version',
-    ) {}
+    ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
 
     public function ensureTable(): void
     {
         $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
         if ('mysql' === $driver) {
-            $this->pdo->exec(sprintf(
+            $this->pdoExec(sprintf(
                 'CREATE TABLE IF NOT EXISTS %s (
                     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                     seeder_name VARCHAR(191) NOT NULL,
@@ -33,7 +39,7 @@ final class SeederExecutionHistory
                 $this->table,
             ));
         } elseif ('pgsql' === $driver) {
-            $this->pdo->exec(sprintf(
+            $this->pdoExec(sprintf(
                 'CREATE TABLE IF NOT EXISTS %s (
                     id BIGSERIAL PRIMARY KEY,
                     seeder_name VARCHAR(191) NOT NULL,
@@ -46,7 +52,7 @@ final class SeederExecutionHistory
                 $this->table,
             ));
         } else {
-            $this->pdo->exec(sprintf(
+            $this->pdoExec(sprintf(
                 'CREATE TABLE IF NOT EXISTS %s (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     seeder_name VARCHAR(191) NOT NULL,
@@ -62,16 +68,16 @@ final class SeederExecutionHistory
 
         $indexName = $this->table . '_name_status_idx';
         if ('mysql' === $driver) {
-            $stmt = $this->pdo->prepare(sprintf('SHOW INDEX FROM %s WHERE Key_name = :name', $this->table));
-            $stmt->execute(['name' => $indexName]);
+            $stmt = $this->pdoPrepare(sprintf('SHOW INDEX FROM %s WHERE Key_name = :name', $this->table));
+            $this->pdoExecute($stmt, ['name' => $indexName]);
             $exists = $stmt->fetch(PDO::FETCH_ASSOC);
             if (false === $exists) {
-                $this->pdo->exec(sprintf('CREATE INDEX %s ON %s (seeder_name, status)', $indexName, $this->table));
+                $this->pdoExec(sprintf('CREATE INDEX %s ON %s (seeder_name, status)', $indexName, $this->table));
             }
             return;
         }
 
-        $this->pdo->exec(sprintf(
+        $this->pdoExec(sprintf(
             'CREATE INDEX IF NOT EXISTS %s ON %s (seeder_name, status)',
             $indexName,
             $this->table,
@@ -82,8 +88,8 @@ final class SeederExecutionHistory
     {
         try {
             $sql = sprintf('SELECT 1 FROM %s WHERE seeder_name = :name AND status = :status LIMIT 1', $this->table);
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
+            $stmt = $this->pdoPrepare($sql);
+            $this->pdoExecute($stmt, [
                 'name' => $name,
                 'status' => SeederExecutionStatus::EXECUTED,
             ]);
@@ -97,8 +103,8 @@ final class SeederExecutionHistory
     public function deleteBySeederName(string $name): int
     {
         $sql = sprintf('DELETE FROM %s WHERE seeder_name = :name', $this->table);
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['name' => $name]);
+        $stmt = $this->pdoPrepare($sql);
+        $this->pdoExecute($stmt, ['name' => $name]);
 
         return $stmt->rowCount();
     }
@@ -115,8 +121,8 @@ final class SeederExecutionHistory
             $this->table,
         );
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
+        $stmt = $this->pdoPrepare($sql);
+        $this->pdoExecute($stmt, [
             'seeder_name' => $definition->name,
             'seeder_class' => $definition->class,
             'status' => $status,
@@ -125,6 +131,6 @@ final class SeederExecutionHistory
             'error' => $error,
         ]);
 
-        return (int) $this->pdo->lastInsertId();
+        return (int) $this->pdoLastInsertId($sql);
     }
 }

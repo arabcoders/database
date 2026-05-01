@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Schema;
 
+use arabcoders\database\DatabaseException;
 use arabcoders\database\Schema\Definition\IndexDefinition;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\SchemaDiffer;
@@ -12,6 +13,8 @@ use arabcoders\database\Schema\SchemaIntrospector;
 use arabcoders\database\Schema\SchemaNormalizer;
 use arabcoders\database\Schema\Utils\NameHelper;
 use PDO;
+use PDOException;
+use PDOStatement;
 use tests\TestCase;
 
 final class SchemaIntrospectorTest extends TestCase
@@ -105,5 +108,80 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertNotNull($table);
         static::assertNotNull($table->getIndex('idx_widgets_name'));
         static::assertNull($table->getIndex('idx_widgets_expr'));
+    }
+
+    public function testWrapsSqliteIntrospectionErrorsWithQuery(): void
+    {
+        $pdo = $this->createStub(PDO::class);
+        $pdo->method('getAttribute')->willReturn('sqlite');
+
+        $tablesStmt = $this->createStub(PDOStatement::class);
+        $tablesStmt
+            ->method('fetchAll')
+            ->willReturn([
+                ['name' => 'widgets', 'sql' => 'CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)'],
+            ]);
+
+        $columnsStmt = $this->createStub(PDOStatement::class);
+        $columnsStmt
+            ->method('fetchAll')
+            ->willReturn([
+                [
+                    'name' => 'id',
+                    'type' => 'INTEGER',
+                    'notnull' => 1,
+                    'dflt_value' => null,
+                    'pk' => 1,
+                ],
+                [
+                    'name' => 'name',
+                    'type' => 'TEXT',
+                    'notnull' => 1,
+                    'dflt_value' => null,
+                    'pk' => 0,
+                ],
+            ]);
+
+        $indexStmt = $this->createStub(PDOStatement::class);
+        $indexStmt
+            ->method('fetchAll')
+            ->willReturn([
+                ['origin' => 'c', 'name' => 'idx_widgets_broken', 'unique' => 0, 'partial' => 0],
+            ]);
+
+        $indexSqlStmt = $this->createStub(PDOStatement::class);
+        $indexSqlStmt->method('fetch')->willReturn(['sql' => 'CREATE INDEX idx_widgets_broken ON widgets(name)']);
+
+        $pdo->method('query')->willReturnCallback(function (string $sql) use ($tablesStmt, $columnsStmt, $indexStmt, $indexSqlStmt) {
+            if (str_contains($sql, 'sqlite_master') && str_contains($sql, "type='table'")) {
+                return $tablesStmt;
+            }
+
+            if (str_contains($sql, 'sqlite_master') && str_contains($sql, "type='index'")) {
+                return $indexSqlStmt;
+            }
+
+            if (str_contains($sql, 'PRAGMA table_xinfo')) {
+                return $columnsStmt;
+            }
+
+            if (str_contains($sql, 'PRAGMA index_list')) {
+                return $indexStmt;
+            }
+
+            if (str_contains($sql, 'PRAGMA index_info')) {
+                throw new PDOException('broken index metadata');
+            }
+
+            throw new \RuntimeException('Unexpected SQL: ' . $sql);
+        });
+
+        try {
+            new SchemaIntrospector($pdo)->introspect();
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame('PRAGMA index_info("idx_widgets_broken")', $exception->getQueryString());
+            static::assertSame([], $exception->getQueryBind());
+        }
     }
 }

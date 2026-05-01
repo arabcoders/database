@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace tests;
 
 use arabcoders\database\Connection;
+use arabcoders\database\DatabaseException;
 use arabcoders\database\Dialect\SqliteDialect;
 use arabcoders\database\Query\Condition;
 use arabcoders\database\Query\InsertQuery;
@@ -55,9 +56,44 @@ final class ConnectionTest extends TestCase
         $pdo = $this->memoryPdo(FailingPdo::class);
         $connection = new Connection($pdo, new SqliteDialect());
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Unable to prepare statement.');
-        $connection->fetchOne(new SelectQuery('widgets'));
+        try {
+            $connection->fetchOne(new SelectQuery('widgets'));
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame('Unable to prepare statement.', $exception->getMessage());
+            static::assertSame('SELECT * FROM "widgets"', $exception->getQueryString());
+            static::assertSame([], $exception->getQueryBind());
+        }
+    }
+
+    public function testWrapsQueryExecutionErrorsWithCompiledSqlAndParams(): void
+    {
+        $pdo = $this->memoryPdo();
+        $connection = new Connection($pdo, new SqliteDialect());
+
+        try {
+            $connection->execute(new InsertQuery('widgets')->values(['name' => 'Broken']));
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame('INSERT INTO "widgets" ("name") VALUES (:p1)', $exception->getQueryString());
+            static::assertSame([':p1' => 'Broken'], $exception->getQueryBind());
+            static::assertNotEmpty($exception->errorInfo ?? []);
+        }
+    }
+
+    public function testWrapsRawExecutionErrorsWithSqlAndParams(): void
+    {
+        $pdo = $this->memoryPdo();
+        $pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+        $connection = new Connection($pdo, new SqliteDialect());
+
+        try {
+            $connection->execRaw('INSERT INTO missing_widgets (name) VALUES (:name)', ['name' => 'Broken']);
+            static::fail('Expected DatabaseException to be thrown.');
+        } catch (DatabaseException $exception) {
+            static::assertSame('INSERT INTO missing_widgets (name) VALUES (:name)', $exception->getQueryString());
+            static::assertSame(['name' => 'Broken'], $exception->getQueryBind());
+        }
     }
 
     public function testUsesCacheWhenProvided(): void

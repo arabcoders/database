@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Commands;
 
+use arabcoders\database\PdoOperations;
 use arabcoders\database\Seeder\SeederDefinition;
 use arabcoders\database\Seeder\SeederDependencyResolver;
 use arabcoders\database\Seeder\SeederExecutionEntry;
@@ -19,11 +20,15 @@ use Throwable;
 
 final class SeederService
 {
+    use PdoOperations;
+
     public function __construct(
-        private PDO $pdo,
+        private(set) PDO $pdo,
         private string $seederDirectory,
         private ?\Psr\Container\ContainerInterface $container = null,
-    ) {}
+    ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
 
     /**
      * @return array<int,SeederDefinition>
@@ -77,7 +82,7 @@ final class SeederService
 
         try {
             if ($perRun) {
-                $this->pdo->beginTransaction();
+                $this->pdoBeginTransaction();
             }
 
             foreach ($targets as $definition) {
@@ -98,11 +103,11 @@ final class SeederService
             }
 
             if ($perRun && $this->pdo->inTransaction()) {
-                $this->pdo->commit();
+                $this->pdoCommit();
             }
         } catch (Throwable $exception) {
             if ($perRun && $this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+                $this->pdoRollBack();
 
                 if ($currentDefinition instanceof SeederDefinition && is_string($currentMode)) {
                     $executor->history()->insert(

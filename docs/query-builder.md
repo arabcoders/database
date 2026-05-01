@@ -164,3 +164,5 @@ If you prefer explicit cache keys, use:
 
 - `fetchAllCached($query, $key, $ttl)`
 - `fetchOneCached($query, $key, $ttl)`
+
+Query execution failures throw `arabcoders\database\DatabaseException`.

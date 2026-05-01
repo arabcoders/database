@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema;
 
+use arabcoders\database\DatabaseException;
+use arabcoders\database\PdoOperations;
 use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\ForeignKeyDefinition;
@@ -12,13 +14,18 @@ use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Utils\NameHelper;
 use PDO;
+use PDOException;
 use RuntimeException;
 
 final class SchemaIntrospector
 {
+    use PdoOperations;
+
     public function __construct(
         private PDO $pdo,
-    ) {}
+    ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
 
     /**
      * Introspect the connected database and produce a normalized schema definition.
@@ -45,15 +52,15 @@ final class SchemaIntrospector
     {
         $schema = new SchemaDefinition();
 
-        $database = (string) $this->pdo->query('SELECT DATABASE()')->fetchColumn();
+        $database = (string) $this->pdoQuery('SELECT DATABASE()')->fetchColumn();
         if ('' === $database) {
             throw new RuntimeException('Unable to determine MySQL database name.');
         }
 
-        $tablesStmt = $this->pdo->prepare(
+        $tablesStmt = $this->pdoPrepare(
             'SELECT TABLE_NAME, ENGINE, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema',
         );
-        $tablesStmt->execute(['schema' => $database]);
+        $this->pdoExecute($tablesStmt, ['schema' => $database]);
 
         foreach ($tablesStmt->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['TABLE_NAME'];
@@ -74,14 +81,14 @@ final class SchemaIntrospector
                 collation: $this->wrapDriverValue($collation, 'mysql'),
             );
 
-            $columnsStmt = $this->pdo->prepare(
+            $columnsStmt = $this->pdoPrepare(
                 'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA, '
                 . 'CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_COMMENT, GENERATION_EXPRESSION '
                 . 'FROM information_schema.COLUMNS '
                 . 'WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table '
                 . 'ORDER BY ORDINAL_POSITION',
             );
-            $columnsStmt->execute(['schema' => $database, 'table' => $tableName]);
+            $this->pdoExecute($columnsStmt, ['schema' => $database, 'table' => $tableName]);
 
             foreach ($columnsStmt->fetchAll(PDO::FETCH_ASSOC) as $columnRow) {
                 $columnType = (string) $columnRow['COLUMN_TYPE'];
@@ -146,13 +153,13 @@ final class SchemaIntrospector
                 ));
             }
 
-            $indexesStmt = $this->pdo->prepare(
+            $indexesStmt = $this->pdoPrepare(
                 'SELECT INDEX_NAME, NON_UNIQUE, INDEX_TYPE, COLUMN_NAME, SEQ_IN_INDEX '
                 . 'FROM information_schema.STATISTICS '
                 . 'WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table '
                 . 'ORDER BY INDEX_NAME, SEQ_IN_INDEX',
             );
-            $indexesStmt->execute(['schema' => $database, 'table' => $tableName]);
+            $this->pdoExecute($indexesStmt, ['schema' => $database, 'table' => $tableName]);
 
             $primaryKey = [];
             $indexes = [];
@@ -206,7 +213,7 @@ final class SchemaIntrospector
                 $table->addIndex($index);
             }
 
-            $foreignStmt = $this->pdo->prepare(
+            $foreignStmt = $this->pdoPrepare(
                 'SELECT k.CONSTRAINT_NAME, k.COLUMN_NAME, k.REFERENCED_TABLE_NAME, '
                 . 'k.REFERENCED_COLUMN_NAME, rc.UPDATE_RULE, rc.DELETE_RULE, k.ORDINAL_POSITION '
                 . 'FROM information_schema.KEY_COLUMN_USAGE k '
@@ -217,7 +224,7 @@ final class SchemaIntrospector
                 . 'AND k.REFERENCED_TABLE_NAME IS NOT NULL '
                 . 'ORDER BY k.CONSTRAINT_NAME, k.ORDINAL_POSITION',
             );
-            $foreignStmt->execute(['schema' => $database, 'table' => $tableName]);
+            $this->pdoExecute($foreignStmt, ['schema' => $database, 'table' => $tableName]);
 
             $foreignGroups = [];
             foreach ($foreignStmt->fetchAll(PDO::FETCH_ASSOC) as $fkRow) {
@@ -263,15 +270,15 @@ final class SchemaIntrospector
     {
         $schema = new SchemaDefinition();
 
-        $schemaName = (string) $this->pdo->query('SELECT current_schema()')->fetchColumn();
+        $schemaName = (string) $this->pdoQuery('SELECT current_schema()')->fetchColumn();
         if ('' === $schemaName) {
             $schemaName = 'public';
         }
 
-        $tablesStmt = $this->pdo->prepare(
+        $tablesStmt = $this->pdoPrepare(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = :schema AND table_type = 'BASE TABLE'",
         );
-        $tablesStmt->execute(['schema' => $schemaName]);
+        $this->pdoExecute($tablesStmt, ['schema' => $schemaName]);
 
         foreach ($tablesStmt->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['table_name'];
@@ -281,7 +288,7 @@ final class SchemaIntrospector
 
             $table = new TableDefinition(name: $tableName);
 
-            $columnsStmt = $this->pdo->prepare(
+            $columnsStmt = $this->pdoPrepare(
                 'SELECT column_name, data_type, udt_name, character_maximum_length, numeric_precision, '
                 . 'numeric_scale, datetime_precision, is_nullable, column_default, is_identity, collation_name '
                 . ', is_generated, generation_expression '
@@ -289,7 +296,7 @@ final class SchemaIntrospector
                 . 'WHERE table_schema = :schema AND table_name = :table '
                 . 'ORDER BY ordinal_position',
             );
-            $columnsStmt->execute(['schema' => $schemaName, 'table' => $tableName]);
+            $this->pdoExecute($columnsStmt, ['schema' => $schemaName, 'table' => $tableName]);
 
             foreach ($columnsStmt->fetchAll(PDO::FETCH_ASSOC) as $columnRow) {
                 $dataType = (string) $columnRow['data_type'];
@@ -332,7 +339,7 @@ final class SchemaIntrospector
                 ));
             }
 
-            $primaryKeyStmt = $this->pdo->prepare(
+            $primaryKeyStmt = $this->pdoPrepare(
                 'SELECT kcu.column_name, kcu.ordinal_position '
                 . 'FROM information_schema.table_constraints tc '
                 . 'JOIN information_schema.key_column_usage kcu '
@@ -340,7 +347,7 @@ final class SchemaIntrospector
                 . "WHERE tc.table_schema = :schema AND tc.table_name = :table AND tc.constraint_type = 'PRIMARY KEY' "
                 . 'ORDER BY kcu.ordinal_position',
             );
-            $primaryKeyStmt->execute(['schema' => $schemaName, 'table' => $tableName]);
+            $this->pdoExecute($primaryKeyStmt, ['schema' => $schemaName, 'table' => $tableName]);
 
             $primaryKey = [];
             foreach ($primaryKeyStmt->fetchAll(PDO::FETCH_ASSOC) as $pkRow) {
@@ -352,7 +359,7 @@ final class SchemaIntrospector
                 $table->setPrimaryKey(array_values($primaryKey));
             }
 
-            $indexesStmt = $this->pdo->prepare(
+            $indexesStmt = $this->pdoPrepare(
                 'SELECT i.relname AS index_name, idx.indisunique AS is_unique, am.amname AS index_type, '
                 . 'arr.idx AS seq, a.attname AS column_name, '
                 . 'pg_get_expr(idx.indpred, idx.indrelid) AS index_where, '
@@ -367,7 +374,7 @@ final class SchemaIntrospector
                 . 'WHERE n.nspname = :schema AND t.relname = :table AND idx.indisprimary = false '
                 . 'ORDER BY i.relname, arr.idx',
             );
-            $indexesStmt->execute(['schema' => $schemaName, 'table' => $tableName]);
+            $this->pdoExecute($indexesStmt, ['schema' => $schemaName, 'table' => $tableName]);
 
             $indexes = [];
             foreach ($indexesStmt->fetchAll(PDO::FETCH_ASSOC) as $indexRow) {
@@ -403,7 +410,7 @@ final class SchemaIntrospector
             }
 
             // Get expression-based index columns for fulltext indexes
-            $exprIndexesStmt = $this->pdo->prepare(
+            $exprIndexesStmt = $this->pdoPrepare(
                 'SELECT i.relname AS index_name, pg_get_indexdef(idx.indexrelid) AS index_def '
                 . 'FROM pg_class t '
                 . 'JOIN pg_namespace n ON n.oid = t.relnamespace '
@@ -412,7 +419,7 @@ final class SchemaIntrospector
                 . 'JOIN pg_am am ON i.relam = am.oid '
                 . "WHERE n.nspname = :schema AND t.relname = :table AND am.amname = 'gin' AND idx.indisprimary = false",
             );
-            $exprIndexesStmt->execute(['schema' => $schemaName, 'table' => $tableName]);
+            $this->pdoExecute($exprIndexesStmt, ['schema' => $schemaName, 'table' => $tableName]);
 
             foreach ($exprIndexesStmt->fetchAll(PDO::FETCH_ASSOC) as $exprRow) {
                 $indexName = (string) $exprRow['index_name'];
@@ -469,7 +476,7 @@ final class SchemaIntrospector
                 $table->addIndex($index);
             }
 
-            $foreignStmt = $this->pdo->prepare(
+            $foreignStmt = $this->pdoPrepare(
                 'SELECT tc.constraint_name, kcu.column_name, ccu.table_name AS references_table, '
                 . 'ccu.column_name AS references_column, rc.update_rule, rc.delete_rule, kcu.ordinal_position '
                 . 'FROM information_schema.table_constraints tc '
@@ -482,7 +489,7 @@ final class SchemaIntrospector
                 . "WHERE tc.table_schema = :schema AND tc.table_name = :table AND tc.constraint_type = 'FOREIGN KEY' "
                 . 'ORDER BY tc.constraint_name, kcu.ordinal_position',
             );
-            $foreignStmt->execute(['schema' => $schemaName, 'table' => $tableName]);
+            $this->pdoExecute($foreignStmt, ['schema' => $schemaName, 'table' => $tableName]);
 
             $foreignGroups = [];
             foreach ($foreignStmt->fetchAll(PDO::FETCH_ASSOC) as $fkRow) {
@@ -528,7 +535,7 @@ final class SchemaIntrospector
     {
         $schema = new SchemaDefinition();
 
-        $tables = $this->pdo->query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+        $tables = $this->pdoQuery("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
         foreach ($tables->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
             $tableName = (string) $tableRow['name'];
             if ($options->shouldIgnoreTable($tableName)) {
@@ -538,7 +545,7 @@ final class SchemaIntrospector
             $tableSql = (string) ($tableRow['sql'] ?? '');
             $table = new TableDefinition(name: $tableName);
 
-            $columnsStmt = $this->pdo->query('PRAGMA table_xinfo(' . $this->quoteSqliteIdentifier($tableName) . ')');
+            $columnsStmt = $this->pdoQuery('PRAGMA table_xinfo(' . $this->quoteSqliteIdentifier($tableName) . ')');
             $primaryKey = [];
 
             foreach ($columnsStmt->fetchAll(PDO::FETCH_ASSOC) as $columnRow) {
@@ -613,7 +620,7 @@ final class SchemaIntrospector
                 }
             }
 
-            $indexStmt = $this->pdo->query('PRAGMA index_list(' . $this->quoteSqliteIdentifier($tableName) . ')');
+            $indexStmt = $this->pdoQuery('PRAGMA index_list(' . $this->quoteSqliteIdentifier($tableName) . ')');
             foreach ($indexStmt->fetchAll(PDO::FETCH_ASSOC) as $indexRow) {
                 $origin = $indexRow['origin'] ?? '';
                 if ('pk' === $origin) {
@@ -624,15 +631,14 @@ final class SchemaIntrospector
                 $unique = 1 === (int) $indexRow['unique'];
                 $partial = 1 === (int) ($indexRow['partial'] ?? 0);
 
-                $indexSqlRow = $this->pdo
-                    ->query(
-                        "SELECT sql FROM sqlite_master WHERE type='index' AND name=" . $this->quoteLiteralSql($indexName),
-                    )
+                $indexSqlRow = $this->pdoQuery(
+                    "SELECT sql FROM sqlite_master WHERE type='index' AND name=" . $this->quoteLiteralSql($indexName),
+                )
                     ->fetch(PDO::FETCH_ASSOC);
                 $indexSql = is_array($indexSqlRow) ? (string) ($indexSqlRow['sql'] ?? '') : '';
                 [$indexExpression, $indexWhere] = $this->parseSqliteIndexSql($indexSql, $partial);
 
-                $infoStmt = $this->pdo->query('PRAGMA index_info(' . $this->quoteSqliteIdentifier($indexName) . ')');
+                $infoStmt = $this->pdoQuery('PRAGMA index_info(' . $this->quoteSqliteIdentifier($indexName) . ')');
                 $columns = [];
                 foreach ($infoStmt->fetchAll(PDO::FETCH_ASSOC) as $infoRow) {
                     $columns[(int) $infoRow['seqno']] = (string) $infoRow['name'];
@@ -659,7 +665,7 @@ final class SchemaIntrospector
                 $table->addIndex($index);
             }
 
-            $fkStmt = $this->pdo->query('PRAGMA foreign_key_list(' . $this->quoteSqliteIdentifier($tableName) . ')');
+            $fkStmt = $this->pdoQuery('PRAGMA foreign_key_list(' . $this->quoteSqliteIdentifier($tableName) . ')');
             $foreignGroups = [];
             foreach ($fkStmt->fetchAll(PDO::FETCH_ASSOC) as $fkRow) {
                 $id = (int) $fkRow['id'];

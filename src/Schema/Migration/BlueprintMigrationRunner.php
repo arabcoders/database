@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema\Migration;
 
+use arabcoders\database\DatabaseException;
+use arabcoders\database\PdoOperations;
 use PDO;
 use ReflectionClass;
 use RuntimeException;
@@ -11,6 +13,8 @@ use Throwable;
 
 final class BlueprintMigrationRunner
 {
+    use PdoOperations;
+
     private const string LOCK_KEY = 'schema_migration';
 
     public function __construct(
@@ -18,7 +22,9 @@ final class BlueprintMigrationRunner
         private MigrationRegistry $registry,
         private string $versionTable = 'migration_version',
         private string $lockTable = 'migration_lock',
-    ) {}
+    ) {
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
 
     /**
      * @return array<int,array{id:string,name:string,class:string,checksum:string}>
@@ -145,8 +151,8 @@ final class BlueprintMigrationRunner
     {
         $this->ensureLockTable();
 
-        $stmt = $this->pdo->prepare("SELECT holder, acquired_at FROM {$this->lockTable} WHERE lock_key = :lock_key LIMIT 1");
-        $stmt->execute(['lock_key' => self::LOCK_KEY]);
+        $stmt = $this->pdoPrepare("SELECT holder, acquired_at FROM {$this->lockTable} WHERE lock_key = :lock_key LIMIT 1");
+        $this->pdoExecute($stmt, ['lock_key' => self::LOCK_KEY]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!is_array($row)) {
@@ -396,15 +402,15 @@ final class BlueprintMigrationRunner
 
     private function runInTransaction(callable $callback): void
     {
-        $started = $this->pdo->beginTransaction();
+        $this->pdoBeginTransaction();
         try {
             $callback();
-            if ($started && $this->pdo->inTransaction()) {
-                $this->pdo->commit();
+            if ($this->pdo->inTransaction()) {
+                $this->pdoCommit();
             }
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+                $this->pdoRollBack();
             }
             throw $e;
         }
@@ -414,7 +420,7 @@ final class BlueprintMigrationRunner
     {
         $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         if ('mysql' === $driver) {
-            $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
+            $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
                     id INT NOT NULL AUTO_INCREMENT,
                     version VARCHAR(32) NOT NULL,
                     name VARCHAR(255) NOT NULL,
@@ -427,7 +433,7 @@ final class BlueprintMigrationRunner
         }
 
         if ('pgsql' === $driver) {
-            $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
+            $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
                     id BIGSERIAL PRIMARY KEY,
                     version VARCHAR(32) NOT NULL UNIQUE,
                     name VARCHAR(255) NOT NULL,
@@ -437,7 +443,7 @@ final class BlueprintMigrationRunner
             return;
         }
 
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
+        $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->versionTable} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 version TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
@@ -451,7 +457,7 @@ final class BlueprintMigrationRunner
         $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
         if ('mysql' === $driver) {
-            $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
+            $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
                     lock_key VARCHAR(64) NOT NULL,
                     holder VARCHAR(128) NOT NULL,
                     acquired_at BIGINT NOT NULL,
@@ -461,7 +467,7 @@ final class BlueprintMigrationRunner
         }
 
         if ('pgsql' === $driver) {
-            $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
+            $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
                     lock_key VARCHAR(64) PRIMARY KEY,
                     holder VARCHAR(128) NOT NULL,
                     acquired_at BIGINT NOT NULL
@@ -469,7 +475,7 @@ final class BlueprintMigrationRunner
             return;
         }
 
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
+        $this->pdoExec("CREATE TABLE IF NOT EXISTS {$this->lockTable} (
                 lock_key TEXT PRIMARY KEY,
                 holder TEXT NOT NULL,
                 acquired_at INTEGER NOT NULL
@@ -480,9 +486,9 @@ final class BlueprintMigrationRunner
     {
         $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         if ('mysql' === $driver || 'pgsql' === $driver) {
-            $stmt = $this->pdo->prepare("INSERT INTO {$this->versionTable} (version, name, checksum)
+            $stmt = $this->pdoPrepare("INSERT INTO {$this->versionTable} (version, name, checksum)
                  VALUES (:version, :name, :checksum)");
-            $stmt->execute([
+            $this->pdoExecute($stmt, [
                 'version' => $version,
                 'name' => $name,
                 'checksum' => $checksum,
@@ -490,9 +496,9 @@ final class BlueprintMigrationRunner
             return;
         }
 
-        $stmt = $this->pdo->prepare("INSERT INTO {$this->versionTable} (version, name, checksum, created_at)
+        $stmt = $this->pdoPrepare("INSERT INTO {$this->versionTable} (version, name, checksum, created_at)
              VALUES (:version, :name, :checksum, :created_at)");
-        $stmt->execute([
+        $this->pdoExecute($stmt, [
             'version' => $version,
             'name' => $name,
             'checksum' => $checksum,
@@ -502,14 +508,14 @@ final class BlueprintMigrationRunner
 
     private function deleteVersion(string $version): void
     {
-        $stmt = $this->pdo->prepare("DELETE FROM {$this->versionTable} WHERE version = :version");
-        $stmt->execute(['version' => $version]);
+        $stmt = $this->pdoPrepare("DELETE FROM {$this->versionTable} WHERE version = :version");
+        $this->pdoExecute($stmt, ['version' => $version]);
     }
 
     private function updateVersionChecksum(string $version, string $checksum): void
     {
-        $stmt = $this->pdo->prepare("UPDATE {$this->versionTable} SET checksum = :checksum WHERE version = :version");
-        $stmt->execute([
+        $stmt = $this->pdoPrepare("UPDATE {$this->versionTable} SET checksum = :checksum WHERE version = :version");
+        $this->pdoExecute($stmt, [
             'version' => $version,
             'checksum' => $checksum,
         ]);
@@ -592,7 +598,7 @@ final class BlueprintMigrationRunner
      */
     private function getAppliedVersions(): array
     {
-        $stmt = $this->pdo->query("SELECT version FROM {$this->versionTable}");
+        $stmt = $this->pdoQuery("SELECT version FROM {$this->versionTable}");
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
         $versions = array_map(strval(...), $rows ?: []);
         usort($versions, fn(string $a, string $b): int => $this->compareIds($b, $a));
@@ -605,7 +611,7 @@ final class BlueprintMigrationRunner
      */
     private function getAppliedRowsByVersion(): array
     {
-        $stmt = $this->pdo->query("SELECT version, name, checksum FROM {$this->versionTable}");
+        $stmt = $this->pdoQuery("SELECT version, name, checksum FROM {$this->versionTable}");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (!is_array($rows)) {
             return [];
@@ -666,8 +672,8 @@ final class BlueprintMigrationRunner
             ];
         }
 
-        $stmt = $this->pdo->prepare("SELECT holder, acquired_at FROM {$this->lockTable} WHERE lock_key = :lock_key LIMIT 1");
-        $stmt->execute(['lock_key' => self::LOCK_KEY]);
+        $stmt = $this->pdoPrepare("SELECT holder, acquired_at FROM {$this->lockTable} WHERE lock_key = :lock_key LIMIT 1");
+        $this->pdoExecute($stmt, ['lock_key' => self::LOCK_KEY]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!is_array($row)) {
@@ -892,28 +898,28 @@ final class BlueprintMigrationRunner
 
     private function tableExistsMysql(string $table): bool
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdoPrepare(
             'SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1',
         );
-        $stmt->execute(['table' => $table]);
+        $this->pdoExecute($stmt, ['table' => $table]);
 
         return false !== $stmt->fetchColumn();
     }
 
     private function tableExistsPostgres(string $table): bool
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdoPrepare(
             'SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = :table LIMIT 1',
         );
-        $stmt->execute(['table' => $table]);
+        $this->pdoExecute($stmt, ['table' => $table]);
 
         return false !== $stmt->fetchColumn();
     }
 
     private function tableExistsSqlite(string $table): bool
     {
-        $stmt = $this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :table LIMIT 1");
-        $stmt->execute(['table' => $table]);
+        $stmt = $this->pdoPrepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :table LIMIT 1");
+        $this->pdoExecute($stmt, ['table' => $table]);
 
         return false !== $stmt->fetchColumn();
     }
@@ -959,24 +965,30 @@ final class BlueprintMigrationRunner
             $this->clearLock();
         }
 
-        $stmt = $this->pdo->prepare("INSERT INTO {$this->lockTable} (lock_key, holder, acquired_at)
+        $stmt = $this->pdoPrepare("INSERT INTO {$this->lockTable} (lock_key, holder, acquired_at)
              VALUES (:lock_key, :holder, :acquired_at)");
 
         try {
-            return $stmt->execute([
+            $this->pdoExecute($stmt, [
                 'lock_key' => self::LOCK_KEY,
                 'holder' => $holder,
                 'acquired_at' => time(),
             ]);
-        } catch (Throwable) {
-            return false;
+
+            return true;
+        } catch (DatabaseException $exception) {
+            if ($this->isLockAlreadyHeld($exception)) {
+                return false;
+            }
+
+            throw $exception;
         }
     }
 
     private function releaseLock(string $holder): void
     {
-        $stmt = $this->pdo->prepare("DELETE FROM {$this->lockTable} WHERE lock_key = :lock_key AND holder = :holder");
-        $stmt->execute([
+        $stmt = $this->pdoPrepare("DELETE FROM {$this->lockTable} WHERE lock_key = :lock_key AND holder = :holder");
+        $this->pdoExecute($stmt, [
             'lock_key' => self::LOCK_KEY,
             'holder' => $holder,
         ]);
@@ -984,8 +996,8 @@ final class BlueprintMigrationRunner
 
     private function clearLock(): void
     {
-        $stmt = $this->pdo->prepare("DELETE FROM {$this->lockTable} WHERE lock_key = :lock_key");
-        $stmt->execute(['lock_key' => self::LOCK_KEY]);
+        $stmt = $this->pdoPrepare("DELETE FROM {$this->lockTable} WHERE lock_key = :lock_key");
+        $this->pdoExecute($stmt, ['lock_key' => self::LOCK_KEY]);
     }
 
     private function compareIds(string $a, string $b): int
@@ -1001,5 +1013,17 @@ final class BlueprintMigrationRunner
         }
 
         return strcmp($a, $b);
+    }
+
+    private function isLockAlreadyHeld(DatabaseException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? null;
+        if (is_string($sqlState) && str_starts_with($sqlState, '23')) {
+            return true;
+        }
+
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'duplicate') || str_contains($message, 'unique') || str_contains($message, 'constraint failed');
     }
 }

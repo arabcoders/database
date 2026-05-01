@@ -188,4 +188,6 @@ Runner-specific exceptions under `Schema/Migration` include:
 - `MigrationChecksumMismatchException`
 - `MigrationStateException`
 
+Low-level PDO failures from schema introspection or migration metadata operations throw `arabcoders\database\DatabaseException`
+
 Catch these in your CLI or deployment tooling when you want clearer error handling.
