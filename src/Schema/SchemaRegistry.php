@@ -133,6 +133,7 @@ final class SchemaRegistry
                         unique: false,
                         type: $attribute->type,
                         algorithm: $attribute->algorithm,
+                        lengths: $this->normalizeIndexLengths($attribute->lengths, $columnMap),
                         where: $attribute->where,
                         expression: $attribute->expression,
                     ));
@@ -157,6 +158,7 @@ final class SchemaRegistry
                         unique: true,
                         type: 'index',
                         algorithm: $attribute->algorithm,
+                        lengths: $this->normalizeIndexLengths($attribute->lengths, $columnMap),
                         where: $attribute->where,
                         expression: $attribute->expression,
                     ));
@@ -201,6 +203,7 @@ final class SchemaRegistry
                     unique: false,
                     type: $attribute->type,
                     algorithm: $attribute->algorithm,
+                    lengths: $this->normalizeIndexLengths($attribute->lengths, $columnMap),
                     where: $attribute->where,
                     expression: $attribute->expression,
                 ));
@@ -229,6 +232,7 @@ final class SchemaRegistry
                     unique: true,
                     type: 'index',
                     algorithm: $attribute->algorithm,
+                    lengths: $this->normalizeIndexLengths($attribute->lengths, $columnMap),
                     where: $attribute->where,
                     expression: $attribute->expression,
                 ));
@@ -351,6 +355,27 @@ final class SchemaRegistry
         }
 
         return $resolved;
+    }
+
+    /**
+     * @param array<string|int,mixed> $lengths
+     * @param array<string,string> $columnMap
+     * @return array<string,int>
+     */
+    private function normalizeIndexLengths(array $lengths, array $columnMap): array
+    {
+        $normalized = [];
+        foreach ($lengths as $column => $length) {
+            $name = trim((string) $column);
+            $value = (int) $length;
+            if ('' === $name || $value <= 0) {
+                continue;
+            }
+
+            $normalized[$columnMap[$name] ?? $name] = $value;
+        }
+
+        return $normalized;
     }
 
     /**

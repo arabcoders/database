@@ -198,7 +198,7 @@ final class MysqlDialect extends AbstractSchemaDialect
         if (null !== $index->expression && '' !== trim($index->expression)) {
             $target = '(' . trim($index->expression) . ')';
         } else {
-            $target = $this->quoteColumns($index->columns);
+            $target = $this->quoteIndexColumns($index->columns, $index->lengths);
         }
 
         return (
@@ -471,5 +471,25 @@ final class MysqlDialect extends AbstractSchemaDialect
         }
 
         return $sql;
+    }
+
+    /**
+     * @param array<int,string> $columns
+     * @param array<string,int> $lengths
+     */
+    private function quoteIndexColumns(array $columns, array $lengths): string
+    {
+        $quoted = [];
+        foreach ($columns as $column) {
+            $sql = $this->quoteIdentifier($column);
+            $length = $lengths[$column] ?? null;
+            if (is_int($length) && $length > 0) {
+                $sql .= '(' . $length . ')';
+            }
+
+            $quoted[] = $sql;
+        }
+
+        return implode(', ', $quoted);
     }
 }

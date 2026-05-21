@@ -39,7 +39,7 @@ final class SchemaOperationSerializerTest extends TestCase
             checkExpression: 'id > 0',
         ));
         $table->setPrimaryKey(['id']);
-        $table->addIndex(new IndexDefinition('idx_widgets_id', ['id'], where: 'id > 0'));
+        $table->addIndex(new IndexDefinition('idx_widgets_id', ['id'], lengths: ['id' => 4], where: 'id > 0'));
         $table->addIndex(new IndexDefinition('idx_widgets_expr', [], expression: '(lower(name))'));
         $table->addForeignKey(new ForeignKeyDefinition('fk_widgets_user', ['id'], 'users', ['id']));
 
@@ -60,8 +60,8 @@ final class SchemaOperationSerializerTest extends TestCase
             new AddColumnOperation('widgets', $column),
             new DropColumnOperation('widgets', $column),
             new AlterColumnOperation('widgets', $column, new ColumnDefinition('name', ColumnType::VarChar, length: 100)),
-            new AddIndexOperation('widgets', new IndexDefinition('idx_widgets_name', ['name'])),
-            new DropIndexOperation('widgets', new IndexDefinition('idx_widgets_name', ['name'])),
+            new AddIndexOperation('widgets', new IndexDefinition('idx_widgets_name', ['name'], lengths: ['name' => 191])),
+            new DropIndexOperation('widgets', new IndexDefinition('idx_widgets_name', ['name'], lengths: ['name' => 191])),
             new AddForeignKeyOperation('widgets', new ForeignKeyDefinition('fk_widgets_user', ['id'], 'users', ['id'])),
             new DropForeignKeyOperation('widgets', new ForeignKeyDefinition('fk_widgets_user', ['id'], 'users', ['id'])),
             new AddPrimaryKeyOperation('widgets', ['id']),
@@ -96,10 +96,18 @@ final class SchemaOperationSerializerTest extends TestCase
         static::assertNotNull($restoredExprIndex);
         static::assertSame('(lower(name))', $restoredExprIndex->expression);
 
+        $restoredPrefixIndex = $create->table->getIndex('idx_widgets_id');
+        static::assertNotNull($restoredPrefixIndex);
+        static::assertSame(['id' => 4], $restoredPrefixIndex->lengths);
+
         /** @var AddColumnOperation $addColumn */
         $addColumn = $restored[2];
         static::assertTrue($addColumn->column->generated);
         static::assertSame('lower(name)', $addColumn->column->generatedExpression);
         static::assertTrue($addColumn->column->generatedStored);
+
+        /** @var AddIndexOperation $addIndex */
+        $addIndex = $restored[5];
+        static::assertSame(['name' => 191], $addIndex->index->lengths);
     }
 }

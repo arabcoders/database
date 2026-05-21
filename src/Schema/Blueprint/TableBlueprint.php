@@ -134,40 +134,44 @@ final class TableBlueprint
         array|string $columns,
         ?string $name = null,
         array $algorithm = [],
+        array $lengths = [],
         ?string $where = null,
         ?string $expression = null,
     ): void {
-        $this->addIndex($columns, $name, false, 'index', $algorithm, $where, $expression);
+        $this->addIndex($columns, $name, false, 'index', $algorithm, $lengths, $where, $expression);
     }
 
     public function unique(
         array|string $columns,
         ?string $name = null,
         array $algorithm = [],
+        array $lengths = [],
         ?string $where = null,
         ?string $expression = null,
     ): void {
-        $this->addIndex($columns, $name, true, 'index', $algorithm, $where, $expression);
+        $this->addIndex($columns, $name, true, 'index', $algorithm, $lengths, $where, $expression);
     }
 
     public function fullText(
         array|string $columns,
         ?string $name = null,
         array $algorithm = [],
+        array $lengths = [],
         ?string $where = null,
         ?string $expression = null,
     ): void {
-        $this->addIndex($columns, $name, false, 'fulltext', $algorithm, $where, $expression);
+        $this->addIndex($columns, $name, false, 'fulltext', $algorithm, $lengths, $where, $expression);
     }
 
     public function spatial(
         array|string $columns,
         ?string $name = null,
         array $algorithm = [],
+        array $lengths = [],
         ?string $where = null,
         ?string $expression = null,
     ): void {
-        $this->addIndex($columns, $name, false, 'spatial', $algorithm, $where, $expression);
+        $this->addIndex($columns, $name, false, 'spatial', $algorithm, $lengths, $where, $expression);
     }
 
     /**
@@ -188,6 +192,7 @@ final class TableBlueprint
         bool $unique = false,
         string $type = 'index',
         array $algorithm = [],
+        array $lengths = [],
         ?string $where = null,
         ?string $expression = null,
     ): void {
@@ -203,6 +208,7 @@ final class TableBlueprint
             unique: $unique,
             type: $type,
             algorithm: $algorithm,
+            lengths: $this->normalizeIndexLengths($lengths),
             where: $where,
             expression: $expression,
         )));
@@ -409,6 +415,7 @@ final class TableBlueprint
         bool $unique,
         string $type,
         array $algorithm,
+        array $lengths,
         ?string $where = null,
         ?string $expression = null,
     ): void {
@@ -432,6 +439,7 @@ final class TableBlueprint
             unique: $unique,
             type: $type,
             algorithm: $algorithm,
+            lengths: $this->normalizeIndexLengths($lengths),
             where: $where,
             expression: $expression,
         );
@@ -450,5 +458,25 @@ final class TableBlueprint
     private function normalizeColumns(array|string $columns): array
     {
         return is_array($columns) ? $columns : [$columns];
+    }
+
+    /**
+     * @param array<string|int,mixed> $lengths
+     * @return array<string,int>
+     */
+    private function normalizeIndexLengths(array $lengths): array
+    {
+        $normalized = [];
+        foreach ($lengths as $column => $length) {
+            $name = trim((string) $column);
+            $value = (int) $length;
+            if ('' === $name || $value <= 0) {
+                continue;
+            }
+
+            $normalized[$name] = $value;
+        }
+
+        return $normalized;
     }
 }

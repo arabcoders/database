@@ -97,6 +97,7 @@ final class SchemaNormalizer
                     unique: $index->unique,
                     type: $type,
                     algorithm: $algorithm,
+                    lengths: $index->lengths,
                     where: $this->normalizeExpression($index->where),
                     expression: $this->normalizeExpression($index->expression),
                 ));

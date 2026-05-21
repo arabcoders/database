@@ -12,6 +12,7 @@ final readonly class IndexDefinition
         public bool $unique = false,
         public string $type = 'index',
         public array $algorithm = [],
+        public array $lengths = [],
         public ?string $where = null,
         public ?string $expression = null,
     ) {}
@@ -28,10 +29,37 @@ final readonly class IndexDefinition
             $this->unique === $other->unique
             && strtolower($this->type) === strtolower($other->type)
             && $this->normalizeDriverValue($this->algorithm) === $this->normalizeDriverValue($other->algorithm)
+            && $this->normalizeLengths($this->lengths) === $this->normalizeLengths($other->lengths)
             && $this->where === $other->where
             && $this->expression === $other->expression
             && $this->columns === $other->columns
         );
+    }
+
+    /**
+     * @param array<string|int,mixed> $lengths
+     * @return array<string,int>
+     */
+    private function normalizeLengths(array $lengths): array
+    {
+        $normalized = [];
+        foreach ($lengths as $column => $length) {
+            $name = trim((string) $column);
+            if ('' === $name) {
+                continue;
+            }
+
+            $value = (int) $length;
+            if ($value <= 0) {
+                continue;
+            }
+
+            $normalized[$name] = $value;
+        }
+
+        ksort($normalized);
+
+        return $normalized;
     }
 
     private function normalizeDriverValue(array $value): ?string

@@ -12,6 +12,7 @@ use RuntimeException;
 use tests\fixtures\BlogPostEntity;
 use tests\fixtures\Schema\LongMysqlIndexEntity;
 use tests\fixtures\Schema\ManualLongMysqlIdentifierEntity;
+use tests\fixtures\Schema\PrefixMysqlTextIndexEntity;
 use tests\fixtures\UserEntity;
 use tests\TestCase;
 
@@ -95,5 +96,19 @@ final class SchemaGeneratorTest extends TestCase
         $this->expectExceptionMessage('exceeds the 64-character identifier limit');
 
         SchemaGenerator::generateSchema(ManualLongMysqlIdentifierEntity::class, new SchemaMysqlDialect());
+    }
+
+    public function testMysqlPreflightAllowsTextIndexWithPrefixLengths(): void
+    {
+        $sql = SchemaGenerator::generateSchema(PrefixMysqlTextIndexEntity::class, new SchemaMysqlDialect());
+
+        static::assertStringContainsString(
+            'CREATE INDEX `idx_profiler_runs_source_id_simple_url`',
+            implode("\n", $sql->up),
+        );
+        static::assertStringContainsString(
+            '`simple_url`(191)',
+            implode("\n", $sql->up),
+        );
     }
 }

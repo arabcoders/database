@@ -14,6 +14,7 @@ final readonly class Index
         public array $columns = [],
         public string $type = 'index',
         public array $algorithm = [],
+        public array $lengths = [],
         public ?string $where = null,
         public ?string $expression = null,
     ) {}

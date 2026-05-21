@@ -528,6 +528,10 @@ final class SchemaBlueprintMigrationExporter
                 : 'algorithm: ' . $this->exportValue($index->algorithm);
         }
 
+        if ([] !== $index->lengths) {
+            $args[] = 'lengths: ' . $this->exportValue($index->lengths);
+        }
+
         if (null !== $index->where) {
             $args[] = 'where: ' . $this->exportValue($index->where);
         }
@@ -556,6 +560,10 @@ final class SchemaBlueprintMigrationExporter
 
         if ([] !== $index->algorithm) {
             $args[] = 'algorithm: ' . $this->exportValue($index->algorithm);
+        }
+
+        if ([] !== $index->lengths) {
+            $args[] = 'lengths: ' . $this->exportValue($index->lengths);
         }
 
         if (null !== $index->where) {

@@ -156,7 +156,7 @@ final readonly class MysqlPreflightValidator
             return;
         }
 
-        $bytes = $this->estimateKeyBytes($table, $index->columns, $index->name);
+        $bytes = $this->estimateKeyBytes($table, $index->columns, $index->name, $index->lengths);
         if (null === $bytes || $bytes <= self::MAX_KEY_BYTES) {
             return;
         }
@@ -173,7 +173,7 @@ final readonly class MysqlPreflightValidator
     /**
      * @param array<int,string> $columns
      */
-    private function estimateKeyBytes(TableDefinition $table, array $columns, string $keyName): ?int
+    private function estimateKeyBytes(TableDefinition $table, array $columns, string $keyName, array $lengths = []): ?int
     {
         if ([] === $columns) {
             return null;
@@ -191,7 +191,7 @@ final readonly class MysqlPreflightValidator
                 ));
             }
 
-            $estimated = $this->estimateColumnBytes($table, $column, $keyName);
+            $estimated = $this->estimateColumnBytes($table, $column, $keyName, $lengths[$columnName] ?? null);
             if (null === $estimated) {
                 return null;
             }
@@ -202,7 +202,7 @@ final readonly class MysqlPreflightValidator
         return $total;
     }
 
-    private function estimateColumnBytes(TableDefinition $table, ColumnDefinition $column, string $keyName): ?int
+    private function estimateColumnBytes(TableDefinition $table, ColumnDefinition $column, string $keyName, ?int $prefixLength): ?int
     {
         return match ($column->type) {
             ColumnType::TinyInt, ColumnType::Boolean => 1,
@@ -216,32 +216,27 @@ final readonly class MysqlPreflightValidator
             ColumnType::Time => 3,
             ColumnType::Timestamp => 4,
             ColumnType::DateTime => 8,
-            ColumnType::Char, ColumnType::VarChar => $this->characterBytes($table, $column),
-            ColumnType::Binary => $this->binaryBytes($column),
+            ColumnType::Char, ColumnType::VarChar => $this->characterBytes($table, $column, $prefixLength),
+            ColumnType::Binary => $this->binaryBytes($column, $prefixLength),
             ColumnType::Enum => count($column->allowed ?? []) > 255 ? 2 : 1,
             ColumnType::Set => 8,
-            ColumnType::Uuid => ($column->length ?? 36) * $this->charsetBytes($this->columnCharset($table, $column)),
-            ColumnType::Ulid => ($column->length ?? 26) * $this->charsetBytes($this->columnCharset($table, $column)),
-            ColumnType::IpAddress => ($column->length ?? 45) * $this->charsetBytes($this->columnCharset($table, $column)),
-            ColumnType::MacAddress => ($column->length ?? 17) * $this->charsetBytes($this->columnCharset($table, $column)),
-            ColumnType::Text,
-            ColumnType::MediumText,
-            ColumnType::LongText,
-            ColumnType::Json,
-            ColumnType::Blob,
-                => throw new RuntimeException(sprintf(
-                'MySQL key "%s" on table "%s" cannot fully index column "%s" of type "%s" without a prefix length. Prefix lengths are not supported by this renderer.',
+            ColumnType::Uuid => $this->stringBytes($table, $column, $column->length ?? 36, $prefixLength),
+            ColumnType::Ulid => $this->stringBytes($table, $column, $column->length ?? 26, $prefixLength),
+            ColumnType::IpAddress => $this->stringBytes($table, $column, $column->length ?? 45, $prefixLength),
+            ColumnType::MacAddress => $this->stringBytes($table, $column, $column->length ?? 17, $prefixLength),
+            ColumnType::Text, ColumnType::MediumText, ColumnType::LongText, ColumnType::Json, ColumnType::Blob => $this->textLikeBytes(
+                $table,
+                $column,
                 $keyName,
-                $table->name,
-                $column->name,
                 $column->type->value,
-            )),
-            ColumnType::Custom => $this->customTypeBytes($table, $column, $keyName),
+                $prefixLength,
+            ),
+            ColumnType::Custom => $this->customTypeBytes($table, $column, $keyName, $prefixLength),
             default => null,
         };
     }
 
-    private function characterBytes(TableDefinition $table, ColumnDefinition $column): int
+    private function characterBytes(TableDefinition $table, ColumnDefinition $column, ?int $prefixLength): int
     {
         $length = $column->length;
         if (null === $length || $length <= 0) {
@@ -252,13 +247,25 @@ final readonly class MysqlPreflightValidator
             ));
         }
 
-        return $length * $this->charsetBytes($this->columnCharset($table, $column));
+        $effectiveLength = null !== $prefixLength ? min($prefixLength, $length) : $length;
+
+        return $effectiveLength * $this->charsetBytes($this->columnCharset($table, $column));
     }
 
-    private function binaryBytes(ColumnDefinition $column): int
+    private function binaryBytes(ColumnDefinition $column, ?int $prefixLength): int
     {
         $length = $column->length;
-        return null !== $length && $length > 0 ? $length : 1;
+        $effectiveLength = null !== $length && $length > 0 ? $length : 1;
+
+        return null !== $prefixLength ? min($prefixLength, $effectiveLength) : $effectiveLength;
+    }
+
+    private function stringBytes(TableDefinition $table, ColumnDefinition $column, int $defaultLength, ?int $prefixLength): int
+    {
+        $length = $column->length ?? $defaultLength;
+        $effectiveLength = null !== $prefixLength ? min($prefixLength, $length) : $length;
+
+        return $effectiveLength * $this->charsetBytes($this->columnCharset($table, $column));
     }
 
     private function decimalBytes(ColumnDefinition $column): int
@@ -270,7 +277,7 @@ final readonly class MysqlPreflightValidator
         return (int) ceil($digits / 9) * 4;
     }
 
-    private function customTypeBytes(TableDefinition $table, ColumnDefinition $column, string $keyName): ?int
+    private function customTypeBytes(TableDefinition $table, ColumnDefinition $column, string $keyName, ?int $prefixLength): ?int
     {
         $typeName = strtolower(trim((string) ($column->typeName ?? '')));
         if ('' === $typeName) {
@@ -282,28 +289,39 @@ final readonly class MysqlPreflightValidator
         }
 
         return match ($typeName) {
-            'char', 'varchar' => $this->characterBytes($table, $column),
-            'binary', 'varbinary' => $this->binaryBytes($column),
-            'text',
-            'tinytext',
-            'mediumtext',
-            'longtext',
-            'json',
-            'blob',
-            'tinyblob',
-            'mediumblob',
-            'longblob',
-                => throw new RuntimeException(sprintf(
-                'MySQL key "%s" on table "%s" cannot fully index column "%s" of type "%s" without a prefix length. Prefix lengths are not supported by this renderer.',
+            'char', 'varchar' => $this->characterBytes($table, $column, $prefixLength),
+            'binary', 'varbinary' => $this->binaryBytes($column, $prefixLength),
+            'text', 'tinytext', 'mediumtext', 'longtext', 'json', 'blob', 'tinyblob', 'mediumblob', 'longblob' => $this->textLikeBytes(
+                $table,
+                $column,
                 $keyName,
-                $table->name,
-                $column->name,
                 $typeName,
-            )),
+                $prefixLength,
+            ),
             'enum' => count($column->allowed ?? []) > 255 ? 2 : 1,
             'set' => 8,
             default => null,
         };
+    }
+
+    private function textLikeBytes(
+        TableDefinition $table,
+        ColumnDefinition $column,
+        string $keyName,
+        string $typeName,
+        ?int $prefixLength,
+    ): int {
+        if (null === $prefixLength) {
+            throw new RuntimeException(sprintf(
+                'MySQL key "%s" on table "%s" cannot fully index column "%s" of type "%s" without a prefix length.',
+                $keyName,
+                $table->name,
+                $column->name,
+                $typeName,
+            ));
+        }
+
+        return $prefixLength * $this->charsetBytes($this->columnCharset($table, $column));
     }
 
     private function columnCharset(TableDefinition $table, ColumnDefinition $column): string

@@ -154,7 +154,7 @@ final class SchemaIntrospector
             }
 
             $indexesStmt = $this->pdoPrepare(
-                'SELECT INDEX_NAME, NON_UNIQUE, INDEX_TYPE, COLUMN_NAME, SEQ_IN_INDEX '
+                'SELECT INDEX_NAME, NON_UNIQUE, INDEX_TYPE, COLUMN_NAME, SUB_PART, SEQ_IN_INDEX '
                 . 'FROM information_schema.STATISTICS '
                 . 'WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table '
                 . 'ORDER BY INDEX_NAME, SEQ_IN_INDEX',
@@ -178,10 +178,17 @@ final class SchemaIntrospector
                         'unique' => 0 === (int) $indexRow['NON_UNIQUE'],
                         'type' => strtolower((string) $indexRow['INDEX_TYPE']),
                         'columns' => [],
+                        'lengths' => [],
                     ];
                 }
 
                 $indexes[$indexName]['columns'][$seq] = $column;
+                if (isset($indexRow['SUB_PART']) && null !== $indexRow['SUB_PART']) {
+                    $length = (int) $indexRow['SUB_PART'];
+                    if ($length > 0) {
+                        $indexes[$indexName]['lengths'][$column] = $length;
+                    }
+                }
             }
 
             if (!empty($primaryKey)) {
@@ -205,6 +212,7 @@ final class SchemaIntrospector
                     unique: (bool) $data['unique'],
                     type: $indexType,
                     algorithm: $this->wrapDriverValue($algorithm, 'mysql'),
+                    lengths: $data['lengths'] ?? [],
                 );
                 if ($options->shouldIgnoreIndex($tableName, $index)) {
                     continue;

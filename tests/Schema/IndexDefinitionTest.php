@@ -52,4 +52,14 @@ final class IndexDefinitionTest extends TestCase
 
         static::assertFalse($indexA->equals($indexC));
     }
+
+    public function testEqualsMatchesPrefixLengths(): void
+    {
+        $indexA = new IndexDefinition('idx_widgets_url', ['simple_url'], lengths: ['simple_url' => 191]);
+        $indexB = new IndexDefinition('idx_widgets_url', ['simple_url'], lengths: ['simple_url' => 191]);
+        $indexC = new IndexDefinition('idx_widgets_url', ['simple_url'], lengths: ['simple_url' => 128]);
+
+        static::assertTrue($indexA->equals($indexB));
+        static::assertFalse($indexA->equals($indexC));
+    }
 }

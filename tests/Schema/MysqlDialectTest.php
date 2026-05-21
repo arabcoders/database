@@ -174,4 +174,17 @@ final class MysqlDialectTest extends TestCase
             where: 'deleted_at IS NULL',
         ));
     }
+
+    public function testRendersColumnPrefixLengths(): void
+    {
+        $dialect = new MysqlDialect();
+
+        $sql = $dialect->addIndexSql('widgets', new IndexDefinition(
+            name: 'idx_widgets_simple_url',
+            columns: ['simple_url'],
+            lengths: ['simple_url' => 191],
+        ));
+
+        static::assertStringContainsString('`simple_url`(191)', $sql);
+    }
 }

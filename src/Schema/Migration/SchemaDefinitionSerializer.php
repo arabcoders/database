@@ -191,6 +191,7 @@ final class SchemaDefinitionSerializer
             'unique' => $index->unique,
             'type' => $index->type,
             'algorithm' => $index->algorithm,
+            'lengths' => $index->lengths,
             'where' => $index->where,
             'expression' => $index->expression,
         ];
@@ -207,6 +208,7 @@ final class SchemaDefinitionSerializer
             unique: (bool) ($payload['unique'] ?? false),
             type: (string) ($payload['type'] ?? 'index'),
             algorithm: $payload['algorithm'] ?? [],
+            lengths: $payload['lengths'] ?? [],
             where: $payload['where'] ?? null,
             expression: $payload['expression'] ?? null,
         );

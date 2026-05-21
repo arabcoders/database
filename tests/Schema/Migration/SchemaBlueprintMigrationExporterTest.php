@@ -105,6 +105,7 @@ final class SchemaBlueprintMigrationExporterTest extends TestCase
                 ['name'],
                 unique: true,
                 algorithm: ['pgsql' => 'hash'],
+                lengths: ['name' => 191],
                 where: 'name IS NOT NULL',
             )),
             new DropIndexOperation('widgets', new IndexDefinition(
@@ -117,7 +118,7 @@ final class SchemaBlueprintMigrationExporterTest extends TestCase
         $content = new SchemaBlueprintMigrationExporter()->export($plan, 'Migration_2_widgets', '2', 'widgets');
 
         static::assertStringContainsString(
-            "\$table->dropIndex('idx_widgets_name', columns: 'name', unique: true, algorithm: ['pgsql' => 'hash'], where: 'name IS NOT NULL');",
+            "\$table->dropIndex('idx_widgets_name', columns: 'name', unique: true, algorithm: ['pgsql' => 'hash'], lengths: ['name' => 191], where: 'name IS NOT NULL');",
             $content,
         );
         static::assertStringContainsString(

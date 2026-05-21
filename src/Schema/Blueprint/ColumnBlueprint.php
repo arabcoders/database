@@ -147,15 +147,15 @@ final class ColumnBlueprint
         return $this;
     }
 
-    public function unique(?string $name = null, array $algorithm = []): self
+    public function unique(?string $name = null, array $algorithm = [], array $lengths = []): self
     {
-        $this->table->unique($this->name, $name, $algorithm);
+        $this->table->unique($this->name, $name, $algorithm, $lengths);
         return $this;
     }
 
-    public function index(?string $name = null, array $algorithm = []): self
+    public function index(?string $name = null, array $algorithm = [], array $lengths = []): self
     {
-        $this->table->index($this->name, $name, $algorithm);
+        $this->table->index($this->name, $name, $algorithm, $lengths);
         return $this;
     }
 

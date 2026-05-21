@@ -13,6 +13,7 @@ final readonly class Unique
         public ?string $name = null,
         public array $columns = [],
         public array $algorithm = [],
+        public array $lengths = [],
         public ?string $where = null,
         public ?string $expression = null,
     ) {}

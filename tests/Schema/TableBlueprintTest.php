@@ -19,7 +19,7 @@ final class TableBlueprintTest extends TestCase
         $this->expectExceptionMessage('Expression index name is required');
 
         $blueprint->createTable('widgets', static function ($table): void {
-            $table->index([], null, [], null, '(lower(email))');
+            $table->index([], null, [], expression: '(lower(email))');
         });
     }
 
@@ -33,6 +33,7 @@ final class TableBlueprintTest extends TestCase
                 columns: ['name'],
                 unique: true,
                 algorithm: ['pgsql' => 'hash'],
+                lengths: ['name' => 191],
                 where: 'name IS NOT NULL',
             );
         });
@@ -45,6 +46,7 @@ final class TableBlueprintTest extends TestCase
         static::assertSame(['name'], $operations[0]->index->columns);
         static::assertTrue($operations[0]->index->unique);
         static::assertSame(['pgsql' => 'hash'], $operations[0]->index->algorithm);
+        static::assertSame(['name' => 191], $operations[0]->index->lengths);
         static::assertSame('name IS NOT NULL', $operations[0]->index->where);
     }
 }
