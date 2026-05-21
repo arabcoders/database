@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema;
 
+use arabcoders\database\Schema\Definition\ColumnDefinition;
+use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
@@ -47,9 +49,18 @@ final class SchemaSqlRenderer
         $operations = $this->orderOperations($operations);
 
         $up = [];
+        $steps = [];
         foreach ($operations as $operation) {
-            $sql = $this->sqlForOperation($operation, 'up');
-            $up = array_merge($up, $this->flattenSqlArray($sql));
+            $upSql = $this->flattenSqlArray($this->sqlForOperation($operation, 'up'));
+            $downSql = $this->flattenSqlArray($this->sqlForOperation($operation, 'down'));
+
+            $up = array_merge($up, $upSql);
+            $steps[] = new MigrationSqlStep(
+                type: $operation->getType(),
+                up: $upSql,
+                down: $downSql,
+                reversible: $this->isOperationReversible($operation, $upSql, $downSql),
+            );
         }
 
         $down = [];
@@ -60,8 +71,87 @@ final class SchemaSqlRenderer
 
         $up = array_values(array_filter($up, static fn(string $sql) => '' !== trim($sql)));
         $down = array_values(array_filter($down, static fn(string $sql) => '' !== trim($sql)));
+        $steps = array_values(array_filter($steps, static fn(MigrationSqlStep $step): bool => [] !== $step->up || [] !== $step->down));
 
-        return new MigrationSql($up, $down);
+        return new MigrationSql($up, $down, $steps);
+    }
+
+    /**
+     * @param array<int,string> $upSql
+     * @param array<int,string> $downSql
+     */
+    private function isOperationReversible(SchemaOperation $operation, array $upSql, array $downSql): bool
+    {
+        if ([] === $upSql) {
+            return true;
+        }
+
+        if ([] === $downSql) {
+            return false;
+        }
+
+        if ($operation instanceof DropIndexOperation) {
+            return (
+                [] !== $operation->index->columns
+                || null !== $operation->index->expression
+                && '' !== trim($operation->index->expression)
+            );
+        }
+
+        if ($operation instanceof DropForeignKeyOperation) {
+            return (
+                [] !== $operation->foreignKey->columns
+                && '' !== trim($operation->foreignKey->referencesTable)
+                && [] !== $operation->foreignKey->referencesColumns
+            );
+        }
+
+        if ($operation instanceof DropPrimaryKeyOperation) {
+            return [] !== $operation->columns;
+        }
+
+        if ($operation instanceof DropTableOperation) {
+            return [] !== $operation->table->getColumns();
+        }
+
+        if ($operation instanceof AlterColumnOperation) {
+            return !$operation->from->equals($operation->to);
+        }
+
+        if ($operation instanceof DropColumnOperation) {
+            return $this->hasColumnRollbackMetadata($operation->column);
+        }
+
+        return true;
+    }
+
+    private function hasColumnRollbackMetadata(ColumnDefinition $column): bool
+    {
+        if ('__drop_placeholder__' === $column->typeName) {
+            return false;
+        }
+
+        return (
+            ColumnType::Text !== $column->type
+            || null !== $column->length
+            || null !== $column->precision
+            || null !== $column->scale
+            || $column->unsigned
+            || $column->nullable
+            || $column->autoIncrement
+            || $column->hasDefault
+            || [] !== $column->charset
+            || [] !== $column->collation
+            || null !== $column->comment
+            || null !== $column->onUpdate
+            || null !== $column->typeName
+            || null !== $column->allowed
+            || $column->check
+            || null !== $column->checkExpression
+            || $column->generated
+            || null !== $column->generatedExpression
+            || null !== $column->generatedStored
+        );
     }
 
     /**

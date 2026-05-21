@@ -13,6 +13,8 @@ use PDO;
 use PDOStatement;
 use ReflectionClass;
 use tests\fixtures\FailingPdo;
+use tests\fixtures\FakeMysqlAutoCommitPdo;
+use tests\fixtures\Schema\BrokenMigration\TestBrokenIndexMigration;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
 use tests\TestCase;
 
@@ -189,6 +191,25 @@ final class BlueprintMigrationRunnerTest extends TestCase
         }
     }
 
+    public function testMysqlFailedMigrationCleansUpCommittedSchemaChanges(): void
+    {
+        $pdo = new FakeMysqlAutoCommitPdo();
+        $registry = new MigrationRegistry([$this->brokenIndexMigrationFixturePath()]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('1071 Specified key was too long');
+
+        try {
+            $runner->migrate('up', false, 1);
+        } finally {
+            static::assertFalse($this->tableExists($pdo, 'broken_widgets'));
+
+            $stmt = $pdo->query("SELECT COUNT(*) FROM migration_version WHERE version = '1'");
+            static::assertSame('0', (string) $stmt->fetchColumn());
+        }
+    }
+
     private function tableExists(PDO $pdo, string $name): bool
     {
         $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = :name");
@@ -200,6 +221,13 @@ final class BlueprintMigrationRunnerTest extends TestCase
     private function migrationFixturePath(): string
     {
         $reflection = new ReflectionClass(TestWidgetsMigration::class);
+
+        return dirname((string) $reflection->getFileName());
+    }
+
+    private function brokenIndexMigrationFixturePath(): string
+    {
+        $reflection = new ReflectionClass(TestBrokenIndexMigration::class);
 
         return dirname((string) $reflection->getFileName());
     }

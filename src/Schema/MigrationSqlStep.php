@@ -4,21 +4,16 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema;
 
-final readonly class MigrationSql
+final readonly class MigrationSqlStep
 {
     /**
      * @param array<int,string> $up
      * @param array<int,string> $down
-     * @param array<int,MigrationSqlStep> $steps
      */
     public function __construct(
+        public string $type,
         public array $up,
         public array $down,
-        public array $steps = [],
+        public bool $reversible,
     ) {}
-
-    public function isEmpty(): bool
-    {
-        return empty($this->up) && empty($this->down);
-    }
 }

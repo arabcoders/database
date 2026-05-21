@@ -290,6 +290,7 @@ final class TableBlueprint
         $definition = new ColumnDefinition(
             name: $name,
             type: ColumnType::Text,
+            typeName: '__drop_placeholder__',
         );
 
         $this->schema->addOperation(new DropColumnOperation($this->table, $definition));
