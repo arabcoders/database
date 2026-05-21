@@ -7,6 +7,7 @@ namespace arabcoders\database\Schema;
 use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\TableDefinition;
+use arabcoders\database\Schema\Dialect\MysqlDialect;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
 use arabcoders\database\Schema\Operation\AddColumnOperation;
@@ -39,6 +40,10 @@ final class SchemaSqlRenderer
      */
     public function render(SchemaDiff $diff): MigrationSql
     {
+        if ($this->dialect instanceof MysqlDialect) {
+            new MysqlPreflightValidator($this->dialect)->validate($diff);
+        }
+
         $operations = $diff->getOperations();
         $operations = $this->splitCreateTableForeignKeys($operations);
 

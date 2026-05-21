@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace tests\Schema;
 
 use arabcoders\database\Dialect\SqliteDialect as QuerySqliteDialect;
+use arabcoders\database\Schema\Dialect\MysqlDialect as SchemaMysqlDialect;
 use arabcoders\database\Schema\Dialect\SqliteDialect as SchemaSqliteDialect;
 use arabcoders\database\Schema\SchemaGenerator;
 use RuntimeException;
 use tests\fixtures\BlogPostEntity;
+use tests\fixtures\Schema\LongMysqlIndexEntity;
+use tests\fixtures\Schema\ManualLongMysqlIdentifierEntity;
 use tests\fixtures\UserEntity;
 use tests\TestCase;
 
@@ -76,5 +79,21 @@ final class SchemaGeneratorTest extends TestCase
         $this->expectException(RuntimeException::class);
 
         SchemaGenerator::generateSchema(self::class, 'sqlite');
+    }
+
+    public function testMysqlPreflightRejectsOversizedIndexKeyBytes(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('exceeds the 3072-byte key limit');
+
+        SchemaGenerator::generateSchema(LongMysqlIndexEntity::class, new SchemaMysqlDialect());
+    }
+
+    public function testMysqlPreflightRejectsOverlongManualIdentifierName(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('exceeds the 64-character identifier limit');
+
+        SchemaGenerator::generateSchema(ManualLongMysqlIdentifierEntity::class, new SchemaMysqlDialect());
     }
 }
