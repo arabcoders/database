@@ -30,7 +30,7 @@ final readonly class DateTransformer
      * @return string|DateTimeInterface|null
      * @throws RuntimeException
      */
-    public function __invoke(TransformType $type, mixed $data): string|null|DateTimeInterface
+    public function __invoke(TransformType $type, mixed $data): string|DateTimeInterface|null
     {
         if (null === $data) {
             if ($this->nullable) {
