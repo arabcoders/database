@@ -7,14 +7,14 @@ namespace arabcoders\database\Schema;
 use arabcoders\database\Schema\Definition\IndexDefinition;
 use Closure;
 
-final class SchemaIntrospectOptions
+final readonly class SchemaIntrospectOptions
 {
     /**
      * @var array<int,string>
      */
-    public readonly array $ignoreTables;
+    public array $ignoreTables;
 
-    private readonly ?Closure $ignoreIndex;
+    private ?Closure $ignoreIndex;
 
     /**
      * @param array<int,string> $ignoreTables

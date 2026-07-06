@@ -9,16 +9,12 @@ use Attribute;
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class Table
 {
-    public ?string $prevName;
-
     public function __construct(
         public ?string $name = null,
         public array $primaryKey = [],
         public array $engine = [],
         public array $charset = [],
         public array $collation = [],
-        ?string $prevName = null,
-    ) {
-        $this->prevName = $prevName;
-    }
+        public ?string $prevName = null,
+    ) {}
 }

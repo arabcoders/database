@@ -24,5 +24,6 @@ final class IgnoredModelEntity extends BaseModel
     /**
      * @var array<int,string>
      */
+    #[\Override]
     protected array $ignored = ['secret'];
 }

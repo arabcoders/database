@@ -211,14 +211,7 @@ final class SchemaDifferTest extends TestCase
         $operations = new SchemaDiffer()
             ->diff($fromSchema, $toSchema)
             ->getOperations();
-
-        $hasRename = false;
-        foreach ($operations as $operation) {
-            if ($operation instanceof RenameColumnOperation) {
-                $hasRename = true;
-                break;
-            }
-        }
+        $hasRename = array_any($operations, fn($operation) => $operation instanceof RenameColumnOperation);
 
         static::assertTrue($hasRename);
     }

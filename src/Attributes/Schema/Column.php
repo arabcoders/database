@@ -10,8 +10,6 @@ use Attribute;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 final readonly class Column
 {
-    public ?string $prevName;
-
     public function __construct(
         public ColumnType $type,
         public ?int $length = null,
@@ -26,7 +24,7 @@ final readonly class Column
         public bool $defaultIsExpression = false,
         public ?string $name = null,
         public ?string $typeName = null,
-        ?string $prevName = null,
+        public ?string $prevName = null,
         public array $charset = [],
         public array $collation = [],
         public ?string $comment = null,
@@ -38,7 +36,5 @@ final readonly class Column
         public ?string $generatedExpression = null,
         public ?bool $generatedStored = null,
         public array $hooks = [],
-    ) {
-        $this->prevName = $prevName;
-    }
+    ) {}
 }

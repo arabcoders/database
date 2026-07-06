@@ -10,7 +10,7 @@ use RuntimeException;
 final class Condition
 {
     private function __construct(
-        private string $type,
+        private readonly string $type,
         private array $payload,
     ) {}
 
@@ -585,7 +585,7 @@ final class Condition
             throw new RuntimeException('Fulltext search is not supported for ' . $dialect->name() . '.');
         }
 
-        $normalized = array_values(array_filter(array_map('trim', $columns), static fn(string $column) => '' !== $column));
+        $normalized = array_values(array_filter(array_map(trim(...), $columns), static fn(string $column) => '' !== $column));
         if (empty($normalized)) {
             throw new RuntimeException('Fulltext search requires valid columns.');
         }

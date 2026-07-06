@@ -158,7 +158,6 @@ final class QueryTest extends TestCase
 
         $reflection = new \ReflectionClass(SelectQuery::class);
         $method = $reflection->getMethod('selectAggregate');
-        $method->setAccessible(true);
         $method->invoke($query, 'median', 'value', 'median_value');
 
         $this->expectException(RuntimeException::class);

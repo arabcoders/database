@@ -47,15 +47,15 @@ final class TableBlueprint
      */
     private array $primaryKey = [];
 
-    private array $engine;
-    private array $charset;
-    private array $collation;
-    private ?string $previousName;
+    private readonly array $engine;
+    private readonly array $charset;
+    private readonly array $collation;
+    private readonly ?string $previousName;
 
     public function __construct(
-        private Blueprint $schema,
-        private string $table,
-        private string $mode,
+        private readonly Blueprint $schema,
+        private readonly string $table,
+        private readonly string $mode,
         array $options = [],
     ) {
         $this->engine = $options['engine'] ?? [];

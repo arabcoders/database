@@ -2339,9 +2339,9 @@ final class EntityRepository
         $parts = [];
         foreach ($this->metadata->primaryKeys as $column) {
             $property = $this->metadata->propertyFor($column) ?? $column;
-            if (array_key_exists($column, $row)) {
+            if (array_key_exists((string) $column, $row)) {
                 $value = $row[$column];
-            } elseif (array_key_exists($property, $row)) {
+            } elseif (array_key_exists((string) $property, $row)) {
                 $value = $row[$property];
             } else {
                 return null;
@@ -3101,7 +3101,7 @@ final class EntityRepository
             }
 
             $parts = array_filter(
-                array_map('trim', explode('.', $relation)),
+                array_map(trim(...), explode('.', $relation)),
                 static fn(string $part) => '' !== $part,
             );
             if (empty($parts)) {

@@ -26,13 +26,13 @@ final class ColumnBlueprint
     private ?bool $generatedStored = null;
 
     public function __construct(
-        private TableBlueprint $table,
-        private string $name,
-        private ColumnType $type,
-        private ?int $length = null,
-        private ?int $precision = null,
-        private ?int $scale = null,
-        private ?string $typeName = null,
+        private readonly TableBlueprint $table,
+        private readonly string $name,
+        private readonly ColumnType $type,
+        private readonly ?int $length = null,
+        private readonly ?int $precision = null,
+        private readonly ?int $scale = null,
+        private readonly ?string $typeName = null,
     ) {}
 
     public function unsigned(bool $value = true): self

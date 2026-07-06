@@ -22,7 +22,7 @@ use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
 
-final class SchemaRegistry
+final readonly class SchemaRegistry
 {
     public function __construct(
         private array $dirs,

@@ -19,8 +19,6 @@ final class SelectQuery implements QueryInterface, CacheableQueryInterface
 
     private bool $distinct = false;
 
-    private ?string $alias = null;
-
     private ?QueryInterface $fromSubquery = null;
 
     /**
@@ -64,10 +62,9 @@ final class SelectQuery implements QueryInterface, CacheableQueryInterface
 
     public function __construct(
         private string $table,
-        ?string $alias = null,
+        private ?string $alias = null,
     ) {
         $this->table = TableResolver::resolve($table);
-        $this->alias = $alias;
     }
 
     /**

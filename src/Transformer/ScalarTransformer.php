@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Transformer;
 
-final class ScalarTransformer
+final readonly class ScalarTransformer
 {
     public function __construct(
         private ScalarType $scalarType,

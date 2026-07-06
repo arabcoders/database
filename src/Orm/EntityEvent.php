@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Orm;
 
-final class EntityEvent
+final readonly class EntityEvent
 {
     public const string PRE_INSERT = 'orm.entity.pre_insert';
     public const string POST_INSERT = 'orm.entity.post_insert';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Query;
 
-final class RawExpression
+final readonly class RawExpression
 {
     public function __construct(
         private string $sql,

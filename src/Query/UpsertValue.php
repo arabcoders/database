@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Query;
 
-final class UpsertValue
+final readonly class UpsertValue
 {
     public function __construct(
         private string $column,

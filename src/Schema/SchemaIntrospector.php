@@ -940,7 +940,7 @@ final class SchemaIntrospector
         if (1 === preg_match('/^([a-zA-Z0-9_]+)(?:\(([^)]+)\))?/', $columnType, $matches)) {
             $type = strtolower($matches[1]);
             if (!empty($matches[2])) {
-                $parts = array_map('trim', explode(',', $matches[2]));
+                $parts = array_map(trim(...), explode(',', $matches[2]));
                 if (count($parts) === 1) {
                     $length = (int) $parts[0];
                 } elseif (count($parts) >= 2) {
@@ -979,7 +979,7 @@ final class SchemaIntrospector
         if (1 === preg_match('/^([a-zA-Z0-9_]+)(?:\(([^)]+)\))?/', $typeRaw, $matches)) {
             $type = strtolower($matches[1]);
             if (!empty($matches[2])) {
-                $parts = array_map('trim', explode(',', $matches[2]));
+                $parts = array_map(trim(...), explode(',', $matches[2]));
                 if (count($parts) === 1) {
                     $length = (int) $parts[0];
                 } elseif (count($parts) >= 2) {
@@ -1032,7 +1032,7 @@ final class SchemaIntrospector
             $values[] = $current;
         }
 
-        return array_values(array_map('trim', $values));
+        return array_values(array_map(trim(...), $values));
     }
 
     private function wrapDriverValue(?string $value, string $driver): array

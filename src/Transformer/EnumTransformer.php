@@ -6,7 +6,7 @@ namespace arabcoders\database\Transformer;
 
 use BackedEnum;
 
-final class EnumTransformer
+final readonly class EnumTransformer
 {
     public function __construct(
         private string $enumName,

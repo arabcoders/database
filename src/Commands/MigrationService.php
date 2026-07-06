@@ -14,7 +14,7 @@ use arabcoders\database\Schema\Migration\SchemaBlueprintMigration;
 use arabcoders\database\Schema\SchemaSqlRenderer;
 use PDO;
 
-final class MigrationService
+final readonly class MigrationService
 {
     public function __construct(
         private PDO $pdo,

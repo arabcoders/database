@@ -8,7 +8,7 @@ use arabcoders\database\Attributes\Migration as MigrationAttribute;
 use arabcoders\database\Scanner\Attributes;
 use RuntimeException;
 
-final class MigrationRegistry
+final readonly class MigrationRegistry
 {
     public function __construct(
         private array $paths,

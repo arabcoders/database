@@ -21,6 +21,7 @@ final class DirtyAwareUserEntity extends BaseModel
     #[Column(type: ColumnType::VarChar, length: 255, name: 'display_name')]
     public string $displayName = '';
 
+    #[\Override]
     public function preserveDirtyOnHydrate(): bool
     {
         return true;

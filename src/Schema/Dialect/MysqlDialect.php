@@ -63,6 +63,7 @@ final class MysqlDialect extends AbstractSchemaDialect
      * @return ColumnType
      */
 
+    #[\Override]
     public function normalizeColumnType(ColumnType $type): ColumnType
     {
         if ($this->isMariaDbJsonType($type)) {

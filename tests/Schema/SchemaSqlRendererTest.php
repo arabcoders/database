@@ -44,14 +44,7 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new SqliteDialect());
         $sql = $renderer->render($diff);
-
-        $hasRename = false;
-        foreach ($sql->up as $statement) {
-            if (str_contains($statement, 'RENAME TO')) {
-                $hasRename = true;
-                break;
-            }
-        }
+        $hasRename = array_any($sql->up, fn($statement) => str_contains((string) $statement, 'RENAME TO'));
 
         static::assertTrue($hasRename);
     }

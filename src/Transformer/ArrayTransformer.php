@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Transformer;
 
-final class ArrayTransformer
+final readonly class ArrayTransformer
 {
     public function __construct(
         private bool $nullable = false,

@@ -64,6 +64,7 @@ final class PostgresDialect extends AbstractSchemaDialect
      * @return ColumnType
      */
 
+    #[\Override]
     public function normalizeColumnType(ColumnType $type): ColumnType
     {
         if (ColumnType::TinyInt === $type) {
@@ -400,6 +401,7 @@ final class PostgresDialect extends AbstractSchemaDialect
         return true;
     }
 
+    #[\Override]
     protected function renderDefault(ColumnDefinition $column): string
     {
         return 'DEFAULT ' . $this->renderDefaultExpression($column);

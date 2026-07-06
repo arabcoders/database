@@ -26,7 +26,7 @@ use arabcoders\database\Schema\Operation\RenameColumnOperation;
 use arabcoders\database\Schema\Operation\RenameTableOperation;
 use arabcoders\database\Schema\Operation\SchemaOperation;
 
-final class SchemaSqlRenderer
+final readonly class SchemaSqlRenderer
 {
     public function __construct(
         private SchemaDialectInterface $dialect,

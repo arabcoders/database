@@ -29,7 +29,7 @@ use RuntimeException;
 
 final class SchemaBlueprintMigrationExporter
 {
-    private MigrationFileRenderer $renderer;
+    private readonly MigrationFileRenderer $renderer;
     private string $columnTypeName = 'ColumnType';
     private string $tableBlueprintName = 'TableBlueprint';
 

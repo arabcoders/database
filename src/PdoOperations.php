@@ -54,7 +54,7 @@ trait PdoOperations
      */
     protected function pdoExecute(PDOStatement $stmt, array $params = []): void
     {
-        $sql = isset($stmt->queryString) ? $stmt->queryString : '';
+        $sql = $stmt->queryString ?? '';
 
         $this->pdoTry(
             operation: static fn() => $stmt->execute($params),

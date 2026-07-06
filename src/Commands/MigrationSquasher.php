@@ -15,7 +15,7 @@ use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
 use PDO;
 use RuntimeException;
 
-final class MigrationSquasher
+final readonly class MigrationSquasher
 {
     public function __construct(
         private string $migrationDirectory,

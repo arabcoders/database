@@ -53,6 +53,7 @@ final class SqliteDialect extends AbstractSchemaDialect
      * @return ColumnType
      */
 
+    #[\Override]
     public function normalizeColumnType(ColumnType $type): ColumnType
     {
         if (ColumnType::Boolean === $type || $this->isIntegerType($type)) {

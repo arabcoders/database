@@ -29,5 +29,6 @@ final class ProtectedModelEntity extends BaseModel
     /**
      * @var array<int,string>
      */
+    #[\Override]
     protected array $_protected = ['secret'];
 }

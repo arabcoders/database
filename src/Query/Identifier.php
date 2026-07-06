@@ -21,7 +21,7 @@ final class Identifier
         }
 
         if (str_contains($identifier, '.')) {
-            $parts = array_map('trim', explode('.', $identifier));
+            $parts = array_map(trim(...), explode('.', $identifier));
             $quoted = [];
             foreach ($parts as $part) {
                 $quoted[] = '*' === $part ? '*' : $dialect->quoteIdentifier($part);

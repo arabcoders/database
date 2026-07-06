@@ -8,20 +8,20 @@ use arabcoders\database\Schema\AutogenSchemaAugmenterInterface;
 use arabcoders\database\Schema\SchemaIntrospectOptions;
 use InvalidArgumentException;
 
-final class MigrationAutogenOptions
+final readonly class MigrationAutogenOptions
 {
     /**
      * @var array<int,AutogenSchemaAugmenterInterface>
      */
-    public readonly array $augmenters;
+    public array $augmenters;
 
     /**
      * @param array<int,AutogenSchemaAugmenterInterface> $augmenters
      */
     public function __construct(
-        public readonly ?SchemaIntrospectOptions $introspect = null,
-        public readonly bool $dropOrphans = false,
-        public readonly bool $dryRun = false,
+        public ?SchemaIntrospectOptions $introspect = null,
+        public bool $dropOrphans = false,
+        public bool $dryRun = false,
         array $augmenters = [],
     ) {
         foreach ($augmenters as $augmenter) {

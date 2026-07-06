@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Dialect;
 
-final class MysqlDialect implements DialectInterface
+final readonly class MysqlDialect implements DialectInterface
 {
     private const string RETURNING_MIN_VERSION = '8.0.21';
 

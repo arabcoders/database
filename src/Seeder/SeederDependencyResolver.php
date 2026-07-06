@@ -63,7 +63,7 @@ final class SeederDependencyResolver
         }
 
         foreach ($definition->dependsOn as $dependency) {
-            $dependencyKey = strtolower($dependency);
+            $dependencyKey = strtolower((string) $dependency);
             if (!isset($nodes[$dependencyKey])) {
                 throw new RuntimeException(sprintf('Seeder %s depends on unknown seeder %s.', $definition->name, $dependency));
             }
@@ -111,9 +111,9 @@ final class SeederDependencyResolver
         $stack[] = $definition->name;
 
         $deps = $definition->dependsOn;
-        usort($deps, static fn(string $a, string $b): int => strcasecmp($a, $b));
+        usort($deps, strcasecmp(...));
         foreach ($deps as $dependency) {
-            $dependencyKey = strtolower($dependency);
+            $dependencyKey = strtolower((string) $dependency);
             if (!isset($nodes[$dependencyKey])) {
                 throw new RuntimeException(sprintf('Seeder %s depends on unknown seeder %s.', $definition->name, $dependency));
             }

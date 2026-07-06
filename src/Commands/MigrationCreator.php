@@ -19,7 +19,7 @@ use arabcoders\database\Schema\SchemaSqlRenderer;
 use PDO;
 use RuntimeException;
 
-final class MigrationCreator
+final readonly class MigrationCreator
 {
     public function __construct(
         private string $migrationDirectory,

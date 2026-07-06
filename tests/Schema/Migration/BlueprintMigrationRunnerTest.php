@@ -72,14 +72,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->listMigrations();
-
-        $matched = false;
-        foreach ($execSql as $sql) {
-            if (str_contains($sql, 'BIGSERIAL') && str_contains($sql, 'TIMESTAMPTZ')) {
-                $matched = true;
-                break;
-            }
-        }
+        $matched = array_any($execSql, fn($sql) => str_contains((string) $sql, 'BIGSERIAL') && str_contains((string) $sql, 'TIMESTAMPTZ'));
 
         static::assertTrue($matched);
     }

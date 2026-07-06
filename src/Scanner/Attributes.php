@@ -327,7 +327,7 @@ class Attributes implements LoggerAwareInterface
 
             public function compare($value1, $value2): int
             {
-                return strcmp($value2->getRealpath(), $value1->getRealpath());
+                return strcmp((string) $value2->getRealpath(), (string) $value1->getRealpath());
             }
         };
     }

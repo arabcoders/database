@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Transformer;
 
-final class JSONTransformer
+final readonly class JSONTransformer
 {
     public function __construct(
         private bool $isAssoc = false,

@@ -8,7 +8,7 @@ use arabcoders\database\Attributes\Seeder as SeederAttribute;
 use arabcoders\database\Scanner\Attributes;
 use RuntimeException;
 
-final class SeederRegistry
+final readonly class SeederRegistry
 {
     public function __construct(
         private array $paths,
@@ -90,7 +90,7 @@ final class SeederRegistry
         }
 
         $result = array_values(array_unique($result));
-        usort($result, static fn(string $a, string $b): int => strcasecmp($a, $b));
+        usort($result, strcasecmp(...));
 
         return $result;
     }

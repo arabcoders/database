@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema\Migration;
 
-final class MigrationFileRenderer
+final readonly class MigrationFileRenderer
 {
     private TemplateWriter $writer;
 
