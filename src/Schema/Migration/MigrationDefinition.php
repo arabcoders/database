@@ -10,5 +10,7 @@ final readonly class MigrationDefinition
         public string $id,
         public string $name,
         public string $class,
+        public string $squashedFrom = '',
+        public string $squashedChecksum = '',
     ) {}
 }

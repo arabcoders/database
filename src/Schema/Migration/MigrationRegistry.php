@@ -49,10 +49,21 @@ final readonly class MigrationRegistry
                 throw new RuntimeException(sprintf('Duplicate migration id found: %s', $id));
             }
 
+            $squashedFrom = (string) ($data['squashedFrom'] ?? '');
+            if ('' !== $squashedFrom && $this->compareIds($squashedFrom, $id) >= 0) {
+                throw new RuntimeException(sprintf('Migration %s must squash from an earlier id.', $id));
+            }
+            $squashedChecksum = (string) ($data['squashedChecksum'] ?? '');
+            if ('' !== $squashedFrom && '' === $squashedChecksum) {
+                throw new RuntimeException(sprintf('Migration %s must define its pre-squash checksum.', $id));
+            }
+
             $definitions[$id] = new MigrationDefinition(
                 id: $id,
                 name: (string) ($data['name'] ?? ''),
                 class: $callable,
+                squashedFrom: $squashedFrom,
+                squashedChecksum: $squashedChecksum,
             );
         }
 

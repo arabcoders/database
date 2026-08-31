@@ -12,5 +12,7 @@ final class Migration
     public function __construct(
         public string $id,
         public string $name = '',
+        public string $squashedFrom = '',
+        public string $squashedChecksum = '',
     ) {}
 }

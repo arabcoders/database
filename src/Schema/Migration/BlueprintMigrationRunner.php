@@ -51,7 +51,7 @@ final class BlueprintMigrationRunner
         $requiresLock = !$dryRun || $repair;
         if ($requiresLock) {
             return $this->withLock(function () use ($direction, $migrations, $dryRun, $steps, $force, $repair): array {
-                $this->validateAppliedState($migrations, $force, $repair);
+                $this->validateAppliedState($migrations, $force, $repair, !$dryRun);
 
                 if (empty($migrations)) {
                     return [];
@@ -66,7 +66,7 @@ final class BlueprintMigrationRunner
             }, $force);
         }
 
-        $this->validateAppliedState($migrations, $force, false);
+        $this->validateAppliedState($migrations, $force, false, false);
         if (empty($migrations)) {
             return [];
         }
@@ -109,7 +109,7 @@ final class BlueprintMigrationRunner
             'needed' => [] !== $pending,
             'migrations' => $pending,
             'lock' => $this->probeLockInfo(),
-            'issues' => $this->collectProbeIssues($migrations, $direction, $force, $repair),
+            'issues' => $this->collectProbeIssues($migrations, $direction, $steps, $force, $repair),
         ];
     }
 
@@ -131,11 +131,12 @@ final class BlueprintMigrationRunner
             $version = (string) $migration['id'];
             $appliedRow = $applied[$this->versionLookupKey($version)] ?? null;
             $appliedChecksum = is_array($appliedRow) ? (string) ($appliedRow['checksum'] ?? '') : '';
+            $isHistoricalSquash = $this->matchesSquashedChecksum($migration, $appliedChecksum);
 
             $migration['applied'] = null !== $appliedRow;
             $migration['applied_checksum'] = null !== $appliedRow ? $appliedChecksum : null;
             $migration['checksum_matches'] = null !== $appliedRow
-                ? '' !== $appliedChecksum && hash_equals((string) $migration['checksum'], $appliedChecksum)
+                ? $isHistoricalSquash || '' !== $appliedChecksum && hash_equals((string) $migration['checksum'], $appliedChecksum)
                 : null;
             $migration['error'] = null;
 
@@ -245,7 +246,7 @@ final class BlueprintMigrationRunner
         }
 
         $runner = function () use ($migrations, $targets, $repair, $force): void {
-            $this->validateAppliedState($migrations, $force, $repair);
+            $this->validateAppliedState($migrations, $force, $repair, true);
 
             $applied = $this->buildVersionLookup($this->getAppliedVersions());
             $this->runInTransaction(function () use ($targets, $applied): void {
@@ -313,21 +314,28 @@ final class BlueprintMigrationRunner
             return [];
         }
 
+        $squashIssue = $this->detectSquashRollbackIssue($migrations, $applied, $steps);
+        if (null !== $squashIssue) {
+            throw new MigrationOrderException($squashIssue);
+        }
+
         $byId = [];
         foreach ($migrations as $migration) {
             $byId[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
         $targets = array_slice($applied, 0, $steps);
+        foreach ($targets as $version) {
+            if (!isset($byId[$this->versionLookupKey($version)])) {
+                throw new MigrationMissingException(sprintf('Applied migration version %s is missing from source files.', $version));
+            }
+        }
+
         $history = $this->historicalDiffs();
         $ran = [];
 
         foreach ($targets as $version) {
             $lookupKey = $this->versionLookupKey($version);
-            if (!isset($byId[$lookupKey])) {
-                throw new MigrationMissingException(sprintf('Applied migration version %s is missing from source files.', $version));
-            }
-
             $migration = $byId[$lookupKey];
             $ran[] = $migration;
 
@@ -395,6 +403,8 @@ final class BlueprintMigrationRunner
                 'name' => $definition->name,
                 'class' => $definition->class,
                 'checksum' => $this->checksumForClass($definition->class),
+                'squashedFrom' => $definition->squashedFrom,
+                'squashedChecksum' => $definition->squashedChecksum,
             ];
         }
 
@@ -622,6 +632,83 @@ final class BlueprintMigrationRunner
     }
 
     /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string,squashedFrom:string}> $migrations
+     * @param array<int,string> $appliedVersions
+     */
+    private function detectPartialSquashIssue(array $migrations, array $appliedVersions): ?string
+    {
+        $current = $this->currentVersionFromVersions($appliedVersions);
+        if ('' === $current) {
+            return null;
+        }
+
+        foreach ($migrations as $migration) {
+            $from = (string) $migration['squashedFrom'];
+            $end = (string) $migration['id'];
+            if ('' === $from || $this->compareIds($current, $from) < 0 || $this->compareIds($current, $end) >= 0) {
+                continue;
+            }
+
+            return sprintf(
+                'Migration state is inside squashed range %s through %s. Apply the original migrations before deploying the squash.',
+                $from,
+                $end,
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string,squashedFrom:string}> $migrations
+     * @param array<int,string> $appliedVersions
+     */
+    private function detectSquashRollbackIssue(array $migrations, array $appliedVersions, int $steps): ?string
+    {
+        $targets = array_slice($appliedVersions, 0, $steps);
+        $byId = [];
+        foreach ($migrations as $migration) {
+            $byId[$this->versionLookupKey((string) $migration['id'])] = $migration;
+        }
+
+        foreach ($targets as $version) {
+            $migration = $byId[$this->versionLookupKey($version)] ?? null;
+            if (is_array($migration) && '' !== (string) $migration['squashedFrom']) {
+                return sprintf('Cannot roll back through squashed migration version %s.', $version);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int,array{id:string,name:string,class:string,checksum:string,squashedFrom:string}> $migrations
+     * @return array{id:string,name:string,class:string,checksum:string,squashedFrom:string}|null
+     */
+    private function squashForVersion(array $migrations, string $version): ?array
+    {
+        foreach ($migrations as $migration) {
+            $from = (string) $migration['squashedFrom'];
+            if ('' === $from) {
+                continue;
+            }
+
+            if ($this->compareIds($version, $from) >= 0 && $this->compareIds($version, (string) $migration['id']) <= 0) {
+                return $migration;
+            }
+        }
+
+        return null;
+    }
+
+    private function matchesSquashedChecksum(array $migration, string $storedChecksum): bool
+    {
+        $squashedChecksum = (string) ($migration['squashedChecksum'] ?? '');
+
+        return '' !== $storedChecksum && '' !== $squashedChecksum && hash_equals($squashedChecksum, $storedChecksum);
+    }
+
+    /**
      * @return array<int,string>
      */
     private function getAppliedVersions(): array
@@ -732,16 +819,26 @@ final class BlueprintMigrationRunner
     /**
      * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
      */
-    private function validateAppliedState(array $migrations, bool $force, bool $repair): void
-    {
-        if ($force && !$repair) {
-            return;
-        }
-
+    private function validateAppliedState(
+        array $migrations,
+        bool $force,
+        bool $repair,
+        bool $reconcileSquashes,
+    ): void {
         $applied = $this->getAppliedRowsByVersion();
         if (empty($applied)) {
             return;
         }
+
+        $appliedVersions = array_column($applied, 'version');
+        $partialIssue = $this->detectPartialSquashIssue($migrations, $appliedVersions);
+        if (null !== $partialIssue) {
+            throw new MigrationOrderException($partialIssue);
+        }
+        if ($force && !$repair) {
+            return;
+        }
+        $current = $this->currentVersionFromVersions($appliedVersions);
 
         $known = [];
         foreach ($migrations as $migration) {
@@ -752,6 +849,11 @@ final class BlueprintMigrationRunner
             $version = (string) $row['version'];
             $lookupKey = $this->versionLookupKey($version);
             if (!isset($known[$lookupKey])) {
+                $squash = $this->squashForVersion($migrations, $version);
+                if (null !== $squash && $this->compareIds($current, (string) $squash['id']) >= 0) {
+                    continue;
+                }
+
                 throw new MigrationMissingException(
                     sprintf('Applied migration version %s is missing from source files.', $version),
                 );
@@ -761,6 +863,13 @@ final class BlueprintMigrationRunner
             $currentChecksum = (string) $known[$lookupKey]['checksum'];
 
             if ('' !== $storedChecksum && hash_equals($storedChecksum, $currentChecksum)) {
+                continue;
+            }
+
+            if ($this->matchesSquashedChecksum($known[$lookupKey], $storedChecksum)) {
+                if ($reconcileSquashes || $repair) {
+                    $this->updateVersionChecksum($version, $currentChecksum);
+                }
                 continue;
             }
 
@@ -793,15 +902,38 @@ final class BlueprintMigrationRunner
      * @param array<int,array{id:string,name:string,class:string,checksum:string}> $migrations
      * @return array<int,string>
      */
-    private function collectProbeIssues(array $migrations, string $direction, bool $force, bool $repair): array
-    {
-        if ($force && !$repair) {
-            return [];
+    private function collectProbeIssues(
+        array $migrations,
+        string $direction,
+        int $steps,
+        bool $force,
+        bool $repair,
+    ): array {
+        $appliedVersions = $this->probeAppliedVersions();
+        $issues = [];
+        $partialIssue = $this->detectPartialSquashIssue($migrations, $appliedVersions);
+        if (null !== $partialIssue) {
+            $issues[] = $partialIssue;
         }
 
-        $issues = $this->collectAppliedStateIssues($migrations, $repair);
+        if ('down' === $direction) {
+            $rollbackIssue = $this->detectSquashRollbackIssue(
+                $migrations,
+                $appliedVersions,
+                0 < $steps ? $steps : 1,
+            );
+            if (null !== $rollbackIssue) {
+                $issues[] = $rollbackIssue;
+            }
+        }
+
+        if ($force && !$repair) {
+            return array_values(array_unique($issues));
+        }
+
+        $issues = [...$issues, ...$this->collectAppliedStateIssues($migrations, $repair)];
         if ('up' === $direction) {
-            $gapIssue = $this->detectGapIssue($migrations, $this->probeAppliedVersions());
+            $gapIssue = $this->detectGapIssue($migrations, $appliedVersions);
             if (null !== $gapIssue) {
                 $issues[] = $gapIssue;
             }
@@ -826,11 +958,22 @@ final class BlueprintMigrationRunner
             $known[$this->versionLookupKey((string) $migration['id'])] = $migration;
         }
 
+        $appliedVersions = array_column($applied, 'version');
+        $current = $this->currentVersionFromVersions($appliedVersions);
+        $partialIssue = $this->detectPartialSquashIssue($migrations, $appliedVersions);
+
         $issues = [];
         foreach ($applied as $row) {
             $version = (string) $row['version'];
             $lookupKey = $this->versionLookupKey($version);
             if (!isset($known[$lookupKey])) {
+                $squash = $this->squashForVersion($migrations, $version);
+                if (null !== $squash) {
+                    if (null !== $partialIssue || $this->compareIds($current, (string) $squash['id']) >= 0) {
+                        continue;
+                    }
+                }
+
                 $issues[] = sprintf('Applied migration version %s is missing from source files.', $version);
                 continue;
             }
@@ -839,6 +982,10 @@ final class BlueprintMigrationRunner
             $currentChecksum = (string) $known[$lookupKey]['checksum'];
 
             if ('' !== $storedChecksum && hash_equals($storedChecksum, $currentChecksum)) {
+                continue;
+            }
+
+            if ($this->matchesSquashedChecksum($known[$lookupKey], $storedChecksum)) {
                 continue;
             }
 
@@ -860,6 +1007,10 @@ final class BlueprintMigrationRunner
                 $storedChecksum,
                 $currentChecksum,
             );
+        }
+
+        if (null !== $partialIssue) {
+            $issues[] = $partialIssue;
         }
 
         return $issues;

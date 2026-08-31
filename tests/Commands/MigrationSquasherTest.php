@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Commands;
 
+use arabcoders\database\Attributes\Migration as MigrationAttribute;
 use arabcoders\database\Commands\MigrationSquasher;
 use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
@@ -49,10 +50,17 @@ final class MigrationSquasherTest extends DatabaseTestCase
         return $file;
     }
 
-    private function makeCompactMigrationFile(string $dir, string $id, string $body): string
-    {
+    private function makeCompactMigrationFile(
+        string $dir,
+        string $id,
+        string $body,
+        string $squashedFrom = '',
+        string $squashedChecksum = '',
+    ): string {
         $class = 'Migration_' . $id;
         $file = $dir . DIRECTORY_SEPARATOR . $class . '.php';
+        $squashedArgument = '' !== $squashedFrom ? ", squashedFrom: '$squashedFrom'" : '';
+        $squashedChecksumArgument = '' !== $squashedChecksum ? ", squashedChecksum: '$squashedChecksum'" : '';
         $content = <<<PHP
             <?php
 
@@ -66,7 +74,7 @@ final class MigrationSquasherTest extends DatabaseTestCase
             use arabcoders\database\Schema\Definition\ColumnType;
             use arabcoders\database\Schema\Migration\SchemaBlueprintMigration;
 
-            #[Migration(id: '$id', name: 'm_$id')]
+            #[Migration(id: '$id', name: 'm_$id'$squashedArgument$squashedChecksumArgument)]
             final class {$class} extends SchemaBlueprintMigration
             {
                 public function change(Blueprint \$blueprint): void
@@ -143,6 +151,10 @@ final class MigrationSquasherTest extends DatabaseTestCase
         static::assertSame('0003', $report['end']);
 
         $class = $this->evaluateMigration($report['newContents'], 'Migration_0003');
+        $attribute = new \ReflectionClass($class)->getAttributes(MigrationAttribute::class)[0]->newInstance();
+        static::assertSame('0003', $attribute->id);
+        static::assertSame('0001', $attribute->squashedFrom);
+        static::assertSame(hash_file('sha256', $f3), $attribute->squashedChecksum);
         $pdo = $this->memoryPdo();
         new SchemaBlueprintRunner($pdo)->run(new $class(), 'up');
         static::assertTrue($this->sqliteTableExists($pdo, 'a'));
@@ -251,6 +263,34 @@ final class MigrationSquasherTest extends DatabaseTestCase
 
         static::assertSame(['id', 'name'], $this->sqliteColumnNames($pdo, 'widgets'));
         static::assertSame(['idx_widgets_name'], $indexes);
+    }
+
+    public function testSquashKeepsBoundary(): void
+    {
+        $tmp = $this->tempDir('migration-squash');
+        $f1 = $this->makeCompactMigrationFile(
+            $tmp,
+            '3002',
+            "        \$blueprint->createTable('a', static function (TableBlueprint \$t): void {\n            \$t->column('id', ColumnType::Int)->primary()->autoIncrement();\n        });\n",
+            '3001',
+            str_repeat('a', 64),
+        );
+        $f2 = $this->makeCompactMigrationFile(
+            $tmp,
+            '3003',
+            "        \$blueprint->createTable('b', static function (TableBlueprint \$t): void {\n            \$t->column('id', ColumnType::Int)->primary()->autoIncrement();\n        });\n",
+        );
+
+        require_once $f1;
+        require_once $f2;
+
+        $report = new MigrationSquasher($tmp)->squash('3002');
+        $class = $this->evaluateMigration($report['newContents'], 'Migration_3003');
+        $attribute = new \ReflectionClass($class)->getAttributes(MigrationAttribute::class)[0]->newInstance();
+
+        static::assertSame('3003', $attribute->id);
+        static::assertSame('3001', $attribute->squashedFrom);
+        static::assertSame(hash_file('sha256', $f2), $attribute->squashedChecksum);
     }
 
     private function evaluateMigration(string $contents, string $className): string

@@ -87,14 +87,21 @@ final readonly class MigrationSquasher
 
         $exporter = new SchemaBlueprintMigrationExporter();
         $latest = $definitions[$endIndex];
+        $first = $definitions[$startIndex];
         $shortLatestClass = preg_replace('/.*\\\\/', '', $latest->class) ?: $latest->class;
+        $latestFile = $this->migrationDirectory . DIRECTORY_SEPARATOR . $shortLatestClass . '.php';
+        $latestChecksum = hash_file('sha256', $latestFile);
+        if (!is_string($latestChecksum)) {
+            throw new RuntimeException('Failed to checksum migration file: ' . $latestFile);
+        }
         $newContents = $exporter->export(
             new SchemaMigrationPlan($fromSchema, $toSchema, $combinedOperations),
             $shortLatestClass,
             $latest->id,
             $latest->name,
+            squashedFrom: '' !== $first->squashedFrom ? $first->squashedFrom : $first->id,
+            squashedChecksum: $latestChecksum,
         );
-        $latestFile = $this->migrationDirectory . DIRECTORY_SEPARATOR . $shortLatestClass . '.php';
 
         $deleted = [];
         if ($apply) {

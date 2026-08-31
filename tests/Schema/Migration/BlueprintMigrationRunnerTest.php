@@ -14,6 +14,7 @@ use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
 use arabcoders\database\Schema\Migration\MigrationChecksumMismatchException;
 use arabcoders\database\Schema\Migration\MigrationLockException;
+use arabcoders\database\Schema\Migration\MigrationOrderException;
 use arabcoders\database\Schema\Migration\MigrationRegistry;
 use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use PDO;
@@ -24,7 +25,10 @@ use tests\fixtures\Schema\BrokenMigration\TestBrokenIndexMigration;
 use tests\fixtures\Schema\HistoricalReplay\AddPostTitleMigration;
 use tests\fixtures\Schema\HistoricalReplay\CreateAccountsAndPostsMigration;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
+use tests\fixtures\Schema\SequentialPending\AddWidgetNameMigration;
 use tests\fixtures\Schema\SequentialPending\CreateWidgetsMigration;
+use tests\fixtures\Schema\Squashed\AddWidgetStatusMigration;
+use tests\fixtures\Schema\Squashed\SquashedWidgetsMigration;
 use tests\Support\DatabaseTestCase;
 
 final class BlueprintMigrationRunnerTest extends DatabaseTestCase
@@ -292,5 +296,111 @@ final class BlueprintMigrationRunnerTest extends DatabaseTestCase
 
         static::assertTrue($this->sqliteColumnExists($pdo, 'posts', 'title'));
         static::assertFalse(array_any($pdo->executed, static fn(string $sql): bool => str_contains($sql, 'information_schema')));
+    }
+
+    public function testSquashFreshHistory(): void
+    {
+        $pdo = $this->memoryPdo();
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(SquashedWidgetsMigration::class)]),
+        );
+
+        $ran = $runner->migrate('up');
+
+        static::assertSame(['2', '3'], array_column($ran, 'id'));
+        static::assertTrue($this->sqliteColumnExists($pdo, 'pending_widgets', 'name'));
+        static::assertTrue($this->sqliteColumnExists($pdo, 'pending_widgets', 'status'));
+    }
+
+    public function testSquashExistingHistory(): void
+    {
+        $pdo = $this->memoryPdo();
+        $historical = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(CreateWidgetsMigration::class)]),
+        );
+        $historical->migrate('up');
+
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(SquashedWidgetsMigration::class)]),
+        );
+        $probe = $runner->probe('up');
+
+        static::assertSame([], $probe['issues']);
+        static::assertSame(['3'], array_column($probe['migrations'], 'id'));
+
+        $ran = $runner->migrate('up');
+        static::assertSame(['3'], array_column($ran, 'id'));
+        static::assertTrue($this->sqliteColumnExists($pdo, 'pending_widgets', 'status'));
+
+        $listed = $runner->listMigrations();
+        static::assertSame(['2', '3'], array_column($listed, 'id'));
+        static::assertTrue((bool) $listed[0]['checksum_matches']);
+        static::assertSame($listed[0]['checksum'], $listed[0]['applied_checksum']);
+        static::assertNull($listed[0]['error']);
+    }
+
+    public function testSquashDetectsDrift(): void
+    {
+        $pdo = $this->memoryPdo();
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(SquashedWidgetsMigration::class)]),
+        );
+        $runner->migrate('up');
+        $pdo->exec("UPDATE migration_version SET checksum = 'invalid-checksum' WHERE version = '2'");
+
+        $this->expectException(MigrationChecksumMismatchException::class);
+        $runner->migrate('up');
+    }
+
+    public function testSquashRejectsPartial(): void
+    {
+        $pdo = $this->memoryPdo();
+        $historical = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(AddWidgetNameMigration::class)]),
+        );
+        $historical->migrate('up', false, 1);
+
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(SquashedWidgetsMigration::class)]),
+        );
+
+        $this->expectException(MigrationOrderException::class);
+        $this->expectExceptionMessage('Migration state is inside squashed range 1 through 2.');
+        $runner->migrate('up');
+    }
+
+    public function testSquashBlocksRollback(): void
+    {
+        $pdo = $this->memoryPdo();
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(AddWidgetStatusMigration::class)]),
+        );
+        $runner->migrate('up');
+
+        try {
+            $runner->migrate('down', false, 2);
+            static::fail('Expected the squash rollback boundary to be enforced.');
+        } catch (MigrationOrderException $exception) {
+            static::assertSame('Cannot roll back through squashed migration version 2.', $exception->getMessage());
+        }
+        static::assertTrue($this->sqliteColumnExists($pdo, 'pending_widgets', 'status'));
+
+        $rolledBack = $runner->migrate('down');
+        static::assertSame(['3'], array_column($rolledBack, 'id'));
+        static::assertFalse($this->sqliteColumnExists($pdo, 'pending_widgets', 'status'));
+
+        $probe = $runner->probe('down');
+        static::assertSame(['Cannot roll back through squashed migration version 2.'], $probe['issues']);
+
+        $this->expectException(MigrationOrderException::class);
+        $this->expectExceptionMessage('Cannot roll back through squashed migration version 2.');
+        $runner->migrate('down');
     }
 }

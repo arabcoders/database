@@ -54,6 +54,8 @@ final class SchemaBlueprintMigrationExporter
         string $id,
         string $name,
         string|MigrationTemplate|null $template = null,
+        string $squashedFrom = '',
+        string $squashedChecksum = '',
     ): string {
         $plan = $this->prunePlan($plan);
         $upOperations = $plan->operations;
@@ -67,6 +69,8 @@ final class SchemaBlueprintMigrationExporter
             name: $name,
             template: $template,
             body: $upBody,
+            squashedFrom: $squashedFrom,
+            squashedChecksum: $squashedChecksum,
         );
     }
 
@@ -170,12 +174,6 @@ final class SchemaBlueprintMigrationExporter
                 continue;
             }
 
-            if ($operation instanceof AddIndexOperation) {
-                if (isset($skipIndexes[$operation->table][$operation->index->name])) {
-                    continue;
-                }
-            }
-
             if ($operation instanceof DropTableOperation) {
                 $lines[] = $this->indent($indentLevel) . '$blueprint->dropTable(' . $this->exportValue($operation->table->name) . ');';
                 continue;
@@ -192,9 +190,14 @@ final class SchemaBlueprintMigrationExporter
                 continue;
             }
 
+            $tableName = $operation->getTableName();
+            if (null === $tableName) {
+                throw new RuntimeException('Schema operation does not define a table name: ' . $operation::class);
+            }
+
             if ($operation instanceof AddColumnOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         $this->renderColumn($operation->column, []) . '->add();',
                     ],
@@ -204,19 +207,13 @@ final class SchemaBlueprintMigrationExporter
             }
 
             if ($operation instanceof AlterColumnOperation) {
-                $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
-                    [
-                        $this->renderColumn($operation->to, []) . '->change();',
-                    ],
-                    $indentLevel,
-                ));
+                $lines = array_merge($lines, $this->renderAlterColumn($operation, $tableName, $indentLevel));
                 continue;
             }
 
             if ($operation instanceof DropColumnOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         '$table->dropColumn(' . $this->exportValue($operation->column->name) . ');',
                     ],
@@ -226,10 +223,14 @@ final class SchemaBlueprintMigrationExporter
             }
 
             if ($operation instanceof AddIndexOperation) {
+                if (isset($skipIndexes[$tableName][$operation->index->name])) {
+                    continue;
+                }
+
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
-                        $this->renderIndex($operation->index, $operation->table),
+                        $this->renderIndex($operation->index, $tableName),
                     ],
                     $indentLevel,
                 ));
@@ -238,7 +239,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof DropIndexOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         $this->renderDropIndex($operation->index),
                     ],
@@ -249,7 +250,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof AddForeignKeyOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         $this->renderForeignKey($operation->foreignKey),
                     ],
@@ -260,7 +261,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof DropForeignKeyOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         '$table->dropForeignKey(' . $this->exportValue($operation->foreignKey->name) . ');',
                     ],
@@ -271,7 +272,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof RenameColumnOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         '$table->renameColumn(' . $this->exportValue($operation->from) . ', ' . $this->exportValue($operation->to) . ');',
                     ],
@@ -282,7 +283,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof AddPrimaryKeyOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         '$table->primary(' . $this->exportColumns($operation->columns) . ');',
                     ],
@@ -293,7 +294,7 @@ final class SchemaBlueprintMigrationExporter
 
             if ($operation instanceof DropPrimaryKeyOperation) {
                 $lines = array_merge($lines, $this->renderTableBlock(
-                    $operation->table,
+                    $tableName,
                     [
                         '$table->dropPrimaryKey();',
                     ],
@@ -310,6 +311,18 @@ final class SchemaBlueprintMigrationExporter
         }
 
         return "\n" . implode("\n", $lines);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function renderAlterColumn(AlterColumnOperation $operation, string $tableName, int $indentLevel): array
+    {
+        return $this->renderTableBlock(
+            $tableName,
+            [$this->renderColumn($operation->to, []) . '->change();'],
+            $indentLevel,
+        );
     }
 
     /**

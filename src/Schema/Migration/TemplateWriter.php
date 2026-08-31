@@ -21,6 +21,8 @@ final class TemplateWriter
         string $blueprintShort,
         string $body,
         bool $changeMethod = false,
+        string $squashedFrom = '',
+        string $squashedChecksum = '',
     ): string {
         $usesBlock = $this->renderUses($uses);
         $idValue = $this->exportValue($id);
@@ -29,6 +31,12 @@ final class TemplateWriter
         $signature = $changeMethod
             ? "{$blueprintShort} \$blueprint"
             : "{$connectionShort} \$runner, {$blueprintShort} \$blueprint";
+        $squashedArgument = '' !== $squashedFrom
+            ? ', squashedFrom: ' . $this->exportValue($squashedFrom)
+            : '';
+        $squashedChecksumArgument = '' !== $squashedChecksum
+            ? ', squashedChecksum: ' . $this->exportValue($squashedChecksum)
+            : '';
 
         return <<<PHP
             <?php
@@ -38,7 +46,7 @@ final class TemplateWriter
             namespace {$namespace};
             {$usesBlock}
 
-            #[{$attributeShort}(id: {$idValue}, name: {$nameValue})]
+            #[{$attributeShort}(id: {$idValue}, name: {$nameValue}{$squashedArgument}{$squashedChecksumArgument})]
             final class {$className} extends {$baseClassShort}
             {
                 public function {$methodName}({$signature}): void

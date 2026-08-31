@@ -61,6 +61,8 @@ final readonly class MigrationFileRenderer
         string $name,
         MigrationTemplate $template,
         string $body,
+        string $squashedFrom = '',
+        string $squashedChecksum = '',
     ): string {
         $uses = $template->usesForAutogen();
         $imports = $this->buildImports($uses, $template);
@@ -77,6 +79,8 @@ final readonly class MigrationFileRenderer
             blueprintShort: $imports['blueprint'],
             body: $body,
             changeMethod: true,
+            squashedFrom: $squashedFrom,
+            squashedChecksum: $squashedChecksum,
         );
     }
 
