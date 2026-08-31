@@ -48,7 +48,7 @@ final class ColumnTypeTest extends TestCase
     }
 
     #[DataProvider('typeMappingProvider')]
-    public function testFromDatabaseTypeMapsTypes(string $input, ColumnType $expected): void
+    public function testFromDatabaseType(string $input, ColumnType $expected): void
     {
         static::assertSame($expected, ColumnType::fromDatabaseType($input));
     }

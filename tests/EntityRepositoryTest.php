@@ -36,7 +36,7 @@ use tests\fixtures\ValidatedUserEntity;
 
 final class EntityRepositoryTest extends TestCase
 {
-    public function testInsertFindUpdateDelete(): void
+    public function testInsertFindUpdate(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -77,7 +77,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertCount(0, $list);
     }
 
-    public function testSaveInsertsWhenPrimaryKeyIsNull(): void
+    public function testSaveInsertsNew(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -103,7 +103,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('Inserted', $found->displayName);
     }
 
-    public function testSaveMissingPrimaryKeyRowReturnsZero(): void
+    public function testSaveMissingPrimary(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -124,7 +124,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(0, $repo->count());
     }
 
-    public function testAppliesOnCreateAndOnUpdateHooks(): void
+    public function testAppliesOnCreate(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -151,7 +151,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('uuid-1234', $updated->uuid);
     }
 
-    public function testUpdateUsesDiffWhenAvailable(): void
+    public function testUpdateUsesDiff(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -180,7 +180,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('Changed', $fresh->displayName);
     }
 
-    public function testKeepsDirtyFieldsOnIdentityRehydrate(): void
+    public function testKeepsDirtyFields(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -212,7 +212,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('Updated in memory', $fresh->displayName);
     }
 
-    public function testCrudWithBaseModelProtectedFields(): void
+    public function testCrudWithBase(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -259,7 +259,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertNull($repo->find(1));
     }
 
-    public function testSupportsWhereCountAndExists(): void
+    public function testSupportsWhereCount(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -339,7 +339,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->insert($entity);
     }
 
-    public function testAppliesDatabaseValidatorRules(): void
+    public function testAppliesDatabaseValidator(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -374,7 +374,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->insert($entity);
     }
 
-    public function testFindRequiresSinglePrimaryKey(): void
+    public function testFindRequiresSingle(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -385,7 +385,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->find(1);
     }
 
-    public function testUpdateRequiresPrimaryKey(): void
+    public function testUpdateRequiresPrimary(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -397,7 +397,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->save($entity);
     }
 
-    public function testDeleteRequiresPrimaryKey(): void
+    public function testDeleteRequiresPrimary(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -488,7 +488,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertCount(1, $alpha[0]->users);
     }
 
-    public function testRelationLimitRequiresOrderBy(): void
+    public function testRelationLimitOrdering(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -508,7 +508,7 @@ final class EntityRepositoryTest extends TestCase
         ]);
     }
 
-    public function testManyToManyAttachDetachSyncToggle(): void
+    public function testManyToMany(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -573,7 +573,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame([], $none->tags);
     }
 
-    public function testManyToManyHandlesDuplicatesAndPivotUpdates(): void
+    public function testManyDuplicates(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -600,7 +600,7 @@ final class EntityRepositoryTest extends TestCase
         $userRepo->attach($user, 'tags', [$tag->id]);
     }
 
-    public function testManyToManyDuplicateModes(): void
+    public function testManyModes(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -643,7 +643,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('2024-05-02', $row['tagged_at'] ?? null);
     }
 
-    public function testSavesRelatedForHasOneAndHasMany(): void
+    public function testSavesRelatedEntities(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -693,7 +693,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('Saved Profile', $profiles[1]->displayName);
     }
 
-    public function testAttachRejectsInvalidDuplicateMode(): void
+    public function testAttachRejectsInvalid(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -718,7 +718,7 @@ final class EntityRepositoryTest extends TestCase
         $userRepo->attach($user, 'tags', [$tag->id], [], 'invalid');
     }
 
-    public function testAttachRejectsInvalidPivotColumn(): void
+    public function testAttachRejectsColumn(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -743,7 +743,7 @@ final class EntityRepositoryTest extends TestCase
         $userRepo->attach($user, 'tags', [['id' => $tag->id, 'pivot' => ['not_allowed' => 'value']]]);
     }
 
-    public function testAttachRejectsNonArrayPivotPayload(): void
+    public function testAttachRejectsNon(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -768,7 +768,7 @@ final class EntityRepositoryTest extends TestCase
         $userRepo->attach($user, 'tags', [['id' => $tag->id, 'pivot' => 'invalid']]);
     }
 
-    public function testRelationWriteRejectsUnsupportedType(): void
+    public function testRelationWriteRejects(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -780,7 +780,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->createRelated($user, 'tags', ['name' => 'alpha']);
     }
 
-    public function testRelationWriteRejectsUnknown(): void
+    public function testWriteRejectsUnknown(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -792,7 +792,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->attach($user, 'missingRelation', [1]);
     }
 
-    public function testSaveRelatedRejectsWrongClass(): void
+    public function testSaveRelatedRejects(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -811,7 +811,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->saveRelated($user, 'posts', new BlogTagEntity());
     }
 
-    public function testRelationWriteRequiresEntityType(): void
+    public function testRelationWriteRequires(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -822,7 +822,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->createRelated(new \stdClass(), 'posts', ['title' => 'Invalid']);
     }
 
-    public function testRelationWriteRejectsUnmappedKeys(): void
+    public function testWriteRejectsKeys(): void
     {
         $connection = new Connection($this->memoryPdo(), new SqliteDialect());
         $factory = new EntityMetadataFactory();
@@ -836,18 +836,24 @@ final class EntityRepositoryTest extends TestCase
             $repo->createRelated($entity, 'brokenPosts', ['title' => 'Broken']);
             static::fail('Expected exception for unmapped foreign key.');
         } catch (RuntimeException $exception) {
-            static::assertStringContainsString('foreign key "missing_user_id" is not mapped', $exception->getMessage());
+            static::assertSame(
+                'Relation "brokenPosts" foreign key "missing_user_id" is not mapped on tests\\fixtures\\MisconfiguredRelationPostEntity.',
+                $exception->getMessage(),
+            );
         }
 
         try {
             $repo->createRelated($entity, 'brokenProfile', ['title' => 'Broken']);
             static::fail('Expected exception for unmapped local key.');
         } catch (RuntimeException $exception) {
-            static::assertStringContainsString('local key "missing_local_key" is not mapped', $exception->getMessage());
+            static::assertSame(
+                'Relation "brokenProfile" local key "missing_local_key" is not mapped on tests\\fixtures\\MisconfiguredRelationUserEntity.',
+                $exception->getMessage(),
+            );
         }
     }
 
-    public function testRelationWriteRequiresParentKey(): void
+    public function testWriteRequiresParent(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -871,7 +877,7 @@ final class EntityRepositoryTest extends TestCase
         $userRepo->attach($unsavedUser, 'tags', [$tag->id]);
     }
 
-    public function testEagerLoadOptionsCallable(): void
+    public function testEagerLoadOptions(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -920,7 +926,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertCount(2, $all);
     }
 
-    public function testInsertManyUpdatesManyDeletesMany(): void
+    public function testInsertManyUpdates(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -964,7 +970,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(1, $repo->count());
     }
 
-    public function testInsertManyUsesTransaction(): void
+    public function testInsertManyDefaults(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -988,7 +994,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(0, $repo->count());
     }
 
-    public function testBulkMethodsComposeWithTransaction(): void
+    public function testBulkMethodsCompose(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1017,7 +1023,10 @@ final class EntityRepositoryTest extends TestCase
             try {
                 $repo->insertMany([$first, new \stdClass(), $second]);
             } catch (RuntimeException $exception) {
-                static::assertStringContainsString('Bulk operation entity must be instance', $exception->getMessage());
+                static::assertSame(
+                    'Bulk operation entity must be instance of ' . UserEntity::class . '.',
+                    $exception->getMessage(),
+                );
             }
 
             $persistedOuter = $repo->findOneBy(['email' => 'outer@example.com']);
@@ -1042,7 +1051,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertNull($repo->findOneBy(['email' => 'upsert@example.com']));
     }
 
-    public function testIdentityMapReturnsSameInstance(): void
+    public function testIdentityMapEntity(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1065,7 +1074,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame($user, $results[0]);
     }
 
-    public function testFindByOrderAndPagination(): void
+    public function testFindByOrder(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1102,7 +1111,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(['c@example.com', 'd@example.com'], $whereEmails);
     }
 
-    public function testSelectColumnsAndGroupByHelpers(): void
+    public function testSelectColumnsRelations(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1132,7 +1141,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('Beta', $aliasResult->displayName);
     }
 
-    public function testCursorAndChunkByIdIterate(): void
+    public function testCursorAndChunk(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1174,7 +1183,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame([['a@example.com', 'b@example.com'], ['c@example.com']], $chunkedById);
     }
 
-    public function testSoftDeleteScopes(): void
+    public function testSoftDeleteFilters(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1201,7 +1210,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('deleted@example.com', $onlyTrashed[0]->email);
     }
 
-    public function testAppliesPhaseAwareValidators(): void
+    public function testAppliesPhaseAware(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1219,7 +1228,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->insert($entity);
     }
 
-    public function testAppliesUpdateOnlyValidatorRules(): void
+    public function testAppliesUpdateValidator(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1240,7 +1249,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->save($entity);
     }
 
-    public function testHydrateValidationIsOptIn(): void
+    public function testHydrateValidationRuns(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1259,7 +1268,7 @@ final class EntityRepositoryTest extends TestCase
         $repo->withHydrateValidation()->findBy();
     }
 
-    public function testUpsertDefaultsToPrimaryKeyConflict(): void
+    public function testUpsertDefaultsInsert(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1284,7 +1293,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame(1, $repo->count());
     }
 
-    public function testUpsertManyWithConflictColumns(): void
+    public function testUpsertManyConflict(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1316,7 +1325,7 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame('First Updated', $row->displayName);
     }
 
-    public function testIsolationAcrossNamedConnections(): void
+    public function testIsolationAcrossNamed(): void
     {
         $primaryPdo = $this->memoryPdo();
         $primaryPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

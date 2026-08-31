@@ -9,7 +9,7 @@ use tests\TestCase;
 
 final class NameHelperTest extends TestCase
 {
-    public function testIndexNameShortensLongNames(): void
+    public function testIndexNameShortens(): void
     {
         $columns = [
             'very_long_column_name_0001',
@@ -22,7 +22,7 @@ final class NameHelperTest extends TestCase
         static::assertLessThanOrEqual(64, strlen($name));
     }
 
-    public function testForeignKeyNameShortensLongNames(): void
+    public function testForeignKeyName(): void
     {
         $name = NameHelper::foreignKeyName(
             str_repeat('b', 40),

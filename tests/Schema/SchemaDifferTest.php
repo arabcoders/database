@@ -28,7 +28,7 @@ use tests\TestCase;
 
 final class SchemaDifferTest extends TestCase
 {
-    public function testDiffFindsColumnChangesAndDrops(): void
+    public function testFindsColumnChanges(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -87,7 +87,7 @@ final class SchemaDifferTest extends TestCase
         static::assertTrue($hasCreateTable);
     }
 
-    public function testDiffDetectsIndexForeignKeyAndPrimaryKeyChanges(): void
+    public function testDetectsIndexChanges(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -150,7 +150,7 @@ final class SchemaDifferTest extends TestCase
         static::assertTrue($hasDropPrimary);
     }
 
-    public function testDiffRequiresPrevNameForColumnRename(): void
+    public function testRequiresPreviousName(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -191,7 +191,7 @@ final class SchemaDifferTest extends TestCase
         static::assertTrue($hasDrop);
     }
 
-    public function testDiffUsesPrevNameForColumnRename(): void
+    public function testUsesPreviousName(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -216,7 +216,7 @@ final class SchemaDifferTest extends TestCase
         static::assertTrue($hasRename);
     }
 
-    public function testDiffUsesPrevNameForTableRename(): void
+    public function testUsesTablePrevious(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('legacy_widgets');

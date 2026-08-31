@@ -10,7 +10,7 @@ use arabcoders\database\Dialect\SqliteDialect;
 
 final class DialectTest extends TestCase
 {
-    public function testMysqlDialectQuotingAndLimit(): void
+    public function testMysqlDialectQuoting(): void
     {
         $dialect = new MysqlDialect();
 
@@ -27,7 +27,7 @@ final class DialectTest extends TestCase
         static::assertSame('VALUES(`name`)', $dialect->renderUpsertInsertValue('name'));
     }
 
-    public function testSqliteDialectQuotingAndLimit(): void
+    public function testSqliteDialectQuoting(): void
     {
         $dialect = new SqliteDialect();
 
@@ -44,7 +44,7 @@ final class DialectTest extends TestCase
         static::assertSame('excluded."name"', $dialect->renderUpsertInsertValue('name'));
     }
 
-    public function testPostgresDialectQuotingAndLimit(): void
+    public function testPostgresDialectQuoting(): void
     {
         $dialect = new PostgresDialect();
 
@@ -61,7 +61,7 @@ final class DialectTest extends TestCase
         static::assertSame('EXCLUDED."name"', $dialect->renderUpsertInsertValue('name'));
     }
 
-    public function testMysqlDialectSupportsReturningForVersion(): void
+    public function testMysqlSupportsFeatures(): void
     {
         $dialect = new MysqlDialect('8.0.21');
 

@@ -47,7 +47,7 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertNotNull($foreignKey);
     }
 
-    public function testSqliteRoundTripKeepsAdvancedIndexesStable(): void
+    public function testSqliteRoundTrip(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -91,7 +91,7 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertSame('(lower(name))', $expression->expression);
     }
 
-    public function testIgnoresIndexesWithOptions(): void
+    public function testIgnoresIndexOptions(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -110,7 +110,7 @@ final class SchemaIntrospectorTest extends TestCase
         static::assertNull($table->getIndex('idx_widgets_expr'));
     }
 
-    public function testWrapsSqliteIntrospectionErrorsWithQuery(): void
+    public function testWrapsSqliteErrors(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('sqlite');

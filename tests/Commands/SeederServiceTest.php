@@ -16,7 +16,7 @@ use tests\TestCase;
 
 final class SeederServiceTest extends TestCase
 {
-    public function testDependencyOrderingIsDeterministic(): void
+    public function testDependenciesOrderSeeders(): void
     {
         $pdo = $this->memoryPdo();
         $this->createSeedItemsTable($pdo);
@@ -31,7 +31,7 @@ final class SeederServiceTest extends TestCase
         );
     }
 
-    public function testDependencyCyclesAreDetected(): void
+    public function testDependencyCyclesFail(): void
     {
         $pdo = $this->memoryPdo();
         $this->createSeedItemsTable($pdo);
@@ -44,7 +44,7 @@ final class SeederServiceTest extends TestCase
         $service->run(new SeederRequest(dryRun: true));
     }
 
-    public function testRunOnceSkipsUsingExecutionHistory(): void
+    public function testRunOnceSkips(): void
     {
         $pdo = $this->memoryPdo();
         $this->createSeedItemsTable($pdo);
@@ -58,7 +58,7 @@ final class SeederServiceTest extends TestCase
         static::assertSame([SeederExecutionStatus::SKIPPED], $this->entryStatuses($second->executionEntries()));
     }
 
-    public function testPerRunTransactionRollsBackOnFailure(): void
+    public function testPerRunTransaction(): void
     {
         $pdo = $this->memoryPdo();
         $this->createTransactionTable($pdo);
@@ -81,7 +81,7 @@ final class SeederServiceTest extends TestCase
         static::assertSame(1, $historyCount);
     }
 
-    public function testDryRunExposesOrderAndSkipStatus(): void
+    public function testDryRunLists(): void
     {
         $pdo = $this->memoryPdo();
         $this->createSeedItemsTable($pdo);
@@ -95,7 +95,7 @@ final class SeederServiceTest extends TestCase
         static::assertSame([SeederExecutionStatus::SKIPPED], $this->entryStatuses($dryRun->executionEntries()));
     }
 
-    public function testWrapsSeederHistoryErrorsWithSqlAndParams(): void
+    public function testWrapsSeederHistory(): void
     {
         $pdo = $this->memoryPdo();
         $this->createSeedItemsTable($pdo);

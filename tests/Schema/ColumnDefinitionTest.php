@@ -10,7 +10,7 @@ use tests\TestCase;
 
 final class ColumnDefinitionTest extends TestCase
 {
-    public function testEqualsHandlesDefaultsAndFlags(): void
+    public function testEqualsHandlesDefaults(): void
     {
         $columnA = new ColumnDefinition(
             name: 'total',
@@ -59,7 +59,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertFalse($columnA->equals($columnC));
     }
 
-    public function testEqualsDetectsTypeChanges(): void
+    public function testEqualsDetectsType(): void
     {
         $columnA = new ColumnDefinition('name', ColumnType::VarChar, length: 255);
         $columnB = new ColumnDefinition('name', ColumnType::Text);
@@ -67,7 +67,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertFalse($columnA->equals($columnB));
     }
 
-    public function testEqualsDetectsMetadataChanges(): void
+    public function testEqualsDetectsMetadata(): void
     {
         $columnA = new ColumnDefinition(
             name: 'name',
@@ -107,7 +107,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertFalse($columnA->equals($columnC));
     }
 
-    public function testEqualsNormalizesNullAndBooleanDefaults(): void
+    public function testEqualsNormalizesNull(): void
     {
         $columnA = new ColumnDefinition(
             name: 'flag',
@@ -138,7 +138,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertFalse($columnA->equals($columnC));
     }
 
-    public function testEqualsNormalizesArrayDefaults(): void
+    public function testEqualsNormalizesArray(): void
     {
         $columnA = new ColumnDefinition(
             name: 'meta',
@@ -157,7 +157,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertTrue($columnA->equals($columnB));
     }
 
-    public function testEqualsComparesCustomTypeNames(): void
+    public function testEqualsComparesCustom(): void
     {
         $columnA = new ColumnDefinition(
             name: 'payload',
@@ -174,7 +174,7 @@ final class ColumnDefinitionTest extends TestCase
         static::assertFalse($columnA->equals($columnB));
     }
 
-    public function testEqualsComparesGeneratedMetadata(): void
+    public function testEqualsComparesGenerated(): void
     {
         $columnA = new ColumnDefinition(
             name: 'computed',

@@ -13,7 +13,7 @@ use tests\fixtures\StringableValue;
 
 final class BaseModelTest extends TestCase
 {
-    public function testDiffSkipsIgnoredFields(): void
+    public function testDiffSkipsIgnored(): void
     {
         $entity = IgnoredModelEntity::fromRow([
             'id' => 1,
@@ -26,7 +26,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff());
     }
 
-    public function testApplySkipsIgnoredFieldsByDefault(): void
+    public function testApplySkipsIgnored(): void
     {
         $target = IgnoredModelEntity::fromRow([
             'id' => 1,
@@ -46,7 +46,7 @@ final class BaseModelTest extends TestCase
         static::assertSame('before-secret', $target->secret);
     }
 
-    public function testApplySupportsColumnWhitelist(): void
+    public function testApplySupportsColumn(): void
     {
         $target = IgnoredModelEntity::fromRow([
             'id' => 1,
@@ -66,7 +66,7 @@ final class BaseModelTest extends TestCase
         static::assertSame('before-secret', $target->secret);
     }
 
-    public function testDiffSupportsColumnWhitelist(): void
+    public function testDiffSupportsColumn(): void
     {
         $entity = IgnoredModelEntity::fromRow([
             'id' => 1,
@@ -80,7 +80,7 @@ final class BaseModelTest extends TestCase
         static::assertSame(['id' => 9], $entity->diff(columns: ['id']));
     }
 
-    public function testDiffTreatsEqualDateTimesAsUnchanged(): void
+    public function testDiffTreatsEqual(): void
     {
         $entity = StringableEntity::fromRow([
             'id' => 1,
@@ -93,7 +93,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['created']));
     }
 
-    public function testDiffTreatsEqualStringablesAsUnchanged(): void
+    public function testDiffTreatsStrings(): void
     {
         $entity = StringableEntity::fromRow([
             'id' => 1,
@@ -106,7 +106,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['name']));
     }
 
-    public function testDiffSupportsArrayDiffer(): void
+    public function testDiffSupportsArray(): void
     {
         $entity = DifferEntity::fromRow([
             'id' => 1,
@@ -119,7 +119,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['title']));
     }
 
-    public function testDiffSupportsStringDiffer(): void
+    public function testDiffSupportsString(): void
     {
         $entity = DifferEntity::fromRow([
             'id' => 1,
@@ -132,7 +132,7 @@ final class BaseModelTest extends TestCase
         static::assertSame([], $entity->diff(columns: ['slug']));
     }
 
-    public function testToArrayOmitsProtectedFieldsByDefault(): void
+    public function testToArrayOmits(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,
@@ -149,7 +149,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testToArrayCanIncludeProtectedFields(): void
+    public function testToArrayIncludes(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,
@@ -167,7 +167,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testToArrayEncodeOmitsProtectedByDefault(): void
+    public function testToArrayEncode(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,
@@ -184,7 +184,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testToArrayEncodeCanIncludeProtectedFields(): void
+    public function testToArrayProtected(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,
@@ -202,7 +202,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testJsonSerializeOmitsProtectedFields(): void
+    public function testJsonSerializeOmits(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,
@@ -217,7 +217,7 @@ final class BaseModelTest extends TestCase
         );
     }
 
-    public function testDiffTracksProtectedFieldsWhenMarkingClean(): void
+    public function testDiffTracksProtected(): void
     {
         $entity = ProtectedModelEntity::fromRow([
             'id' => 1,

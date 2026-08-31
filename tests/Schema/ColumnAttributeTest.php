@@ -10,31 +10,31 @@ use tests\TestCase;
 
 final class ColumnAttributeTest extends TestCase
 {
-    public function testNameAssignsExplicitValue(): void
+    public function testNameAssignsExplicit(): void
     {
         $column = new Column(type: ColumnType::VarChar, name: 'db_column');
         static::assertSame('db_column', $column->name);
     }
 
-    public function testNameDefaultsToNull(): void
+    public function testNameDefaultsProperty(): void
     {
         $column = new Column(type: ColumnType::VarChar);
         static::assertNull($column->name);
     }
 
-    public function testPrevNameAssignsExplicitValue(): void
+    public function testPrevNameValue(): void
     {
         $column = new Column(type: ColumnType::VarChar, prevName: 'legacy_name');
         static::assertSame('legacy_name', $column->prevName);
     }
 
-    public function testTypeNameAssignsExplicitValue(): void
+    public function testTypeNameValue(): void
     {
         $column = new Column(type: ColumnType::Custom, typeName: 'jsonb');
         static::assertSame('jsonb', $column->typeName);
     }
 
-    public function testAdvancedColumnMetadataIsExposed(): void
+    public function testAdvancedColumnMetadata(): void
     {
         $column = new Column(
             type: ColumnType::Int,

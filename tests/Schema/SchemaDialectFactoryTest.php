@@ -15,7 +15,7 @@ use tests\TestCase;
 
 final class SchemaDialectFactoryTest extends TestCase
 {
-    public function testFactoryResolvesSqliteDialect(): void
+    public function testFactoryResolvesSqlite(): void
     {
         $pdo = $this->memoryPdo();
 
@@ -23,7 +23,7 @@ final class SchemaDialectFactoryTest extends TestCase
         static::assertInstanceOf(SqliteDialect::class, $dialect);
     }
 
-    public function testFactoryRejectsUnsupportedDriver(): void
+    public function testFactoryRejectsUnsupported(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('sqlsrv');
@@ -32,7 +32,7 @@ final class SchemaDialectFactoryTest extends TestCase
         SchemaDialectFactory::fromPdo($pdo);
     }
 
-    public function testFactoryResolvesMysqlDialect(): void
+    public function testFactoryResolvesMysql(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('mysql');
@@ -41,7 +41,7 @@ final class SchemaDialectFactoryTest extends TestCase
         static::assertInstanceOf(MysqlDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesPostgresDialect(): void
+    public function testFactoryResolvesPostgres(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('pgsql');
@@ -50,25 +50,25 @@ final class SchemaDialectFactoryTest extends TestCase
         static::assertInstanceOf(PostgresDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesFromDriverName(): void
+    public function testFactoryResolvesDriver(): void
     {
         $dialect = SchemaDialectFactory::fromDriverName('sqlite');
         static::assertInstanceOf(SqliteDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesFromTargetSchemaClass(): void
+    public function testFactoryFromSchema(): void
     {
         $dialect = SchemaDialectFactory::fromTarget(SqliteDialect::class);
         static::assertInstanceOf(SqliteDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesFromTargetDatabaseClass(): void
+    public function testFactoryFromDatabase(): void
     {
         $dialect = SchemaDialectFactory::fromTarget(QuerySqliteDialect::class);
         static::assertInstanceOf(SqliteDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesFromTargetInstance(): void
+    public function testFactoryFromInstance(): void
     {
         $dialect = SchemaDialectFactory::fromTarget(new SqliteDialect());
         static::assertInstanceOf(SqliteDialect::class, $dialect);

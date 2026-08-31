@@ -9,7 +9,7 @@ use tests\TestCase;
 
 final class ForeignKeyDefinitionTest extends TestCase
 {
-    public function testEqualsMatchesForeignKeyProperties(): void
+    public function testEqualsMatchesForeign(): void
     {
         $fkA = new ForeignKeyDefinition('fk_widgets_user', ['user_id'], 'users', ['id'], 'cascade', 'restrict');
         $fkB = new ForeignKeyDefinition('fk_widgets_user', ['user_id'], 'users', ['id'], 'cascade', 'restrict');

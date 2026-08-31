@@ -18,7 +18,7 @@ use tests\TestCase;
 
 final class SchemaNormalizerTest extends TestCase
 {
-    public function testNormalizeMysqlRemovesIntegerLength(): void
+    public function testMysqlRemovesLength(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('metrics_host_metrics_1m');
@@ -45,7 +45,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertNull($memUsed->length);
     }
 
-    public function testNormalizePostgresRemovesIntegerLength(): void
+    public function testPostgresRemovesLength(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('widgets');
@@ -68,7 +68,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertNull($userId->length);
     }
 
-    public function testNormalizePostgresConvertsTinyIntToSmallInt(): void
+    public function testPostgresConvertsTiny(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');
@@ -91,7 +91,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(ColumnType::SmallInt, $smallCol->type);
     }
 
-    public function testNormalizePostgresConvertsUniqueHashToBtree(): void
+    public function testPostgresTinyInt(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');
@@ -132,15 +132,12 @@ final class SchemaNormalizerTest extends TestCase
         static::assertNotNull($uniqueBtree);
         static::assertNotNull($nonUniqueHash);
 
-        // Unique hash index should be normalized to btree (then btree normalized to empty array)
         static::assertSame([], $uniqueHash->algorithm);
-        // Unique btree index gets normalized to empty array (btree is the default)
         static::assertSame([], $uniqueBtree->algorithm);
-        // Non-unique hash index stays hash
         static::assertSame(['pgsql' => 'hash'], $nonUniqueHash->algorithm);
     }
 
-    public function testNormalizePostgresConvertsLongAndMediumText(): void
+    public function testNormalizePostgresText(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');
@@ -167,7 +164,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(ColumnType::Text, $textCol->type);
     }
 
-    public function testNormalizePostgresNormalizesAllowedValues(): void
+    public function testPostgresNormalizesAllowed(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('widgets');
@@ -189,7 +186,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(['draft', 'published'], $status->allowed);
     }
 
-    public function testNormalizeMariaDbJsonToLongText(): void
+    public function testNormalizeMariaDb(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('test_table');
@@ -208,7 +205,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame(ColumnType::LongText, $payload->type);
     }
 
-    public function testNormalizeTrimsAdvancedExpressions(): void
+    public function testNormalizeTrimsAdvanced(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('widgets');
@@ -246,7 +243,7 @@ final class SchemaNormalizerTest extends TestCase
         static::assertSame('deleted_at IS NULL', $index->where);
     }
 
-    public function testNormalizeSqlitePreservesExplicitIndexNames(): void
+    public function testSqlitePreservesNames(): void
     {
         $schema = new SchemaDefinition();
         $table = new TableDefinition('widgets');

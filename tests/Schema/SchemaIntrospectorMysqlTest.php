@@ -12,7 +12,7 @@ use tests\TestCase;
 
 final class SchemaIntrospectorMysqlTest extends TestCase
 {
-    public function testMysqlIntrospectionBuildsSchema(): void
+    public function testMysqlBuildsSchema(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('mysql');

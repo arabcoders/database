@@ -85,22 +85,31 @@ final class MysqlDialectTest extends TestCase
         $dialect = new MysqlDialect();
 
         $createSql = $dialect->createTableSql($table);
-        static::assertStringContainsString('CREATE TABLE `widgets`', $createSql);
-        static::assertStringContainsString('ENGINE=InnoDB', $createSql);
-        static::assertStringContainsString('DEFAULT CHARSET=utf8mb4', $createSql);
-        static::assertStringContainsString('COLLATE=utf8mb4_unicode_ci', $createSql);
-        static::assertStringContainsString('PRIMARY KEY (`id`)', $createSql);
-        static::assertStringContainsString('AUTO_INCREMENT', $createSql);
-        static::assertStringContainsString('COMMENT', $createSql);
-        static::assertStringContainsString('ON UPDATE CURRENT_TIMESTAMP', $createSql);
-        static::assertStringContainsString('FOREIGN KEY (`user_id`)', $createSql);
+        static::assertSame(
+            "CREATE TABLE `widgets` (\n"
+            . "    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,\n"
+            . "    `title` varchar(255) NOT NULL DEFAULT '' COMMENT 'Title',\n"
+            . "    `price` decimal(8,2) NOT NULL DEFAULT 0,\n"
+            . "    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n"
+            . "    `user_id` int(11) NOT NULL,\n"
+            . "    PRIMARY KEY (`id`),\n"
+            . "    CONSTRAINT `fk_widgets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT\n"
+            . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+            $createSql,
+        );
 
         $titleColumn = $table->getColumn('title');
         static::assertNotNull($titleColumn);
 
-        static::assertStringContainsString('ALTER TABLE `widgets` ADD COLUMN', $dialect->addColumnSql('widgets', $titleColumn));
-        static::assertStringContainsString('ALTER TABLE `widgets` MODIFY COLUMN', $dialect->alterColumnSql('widgets', $titleColumn));
-        static::assertStringContainsString('ALTER TABLE `widgets` DROP COLUMN `title`', $dialect->dropColumnSql('widgets', 'title'));
+        static::assertSame('ALTER TABLE `widgets` ADD COLUMN `title` varchar(255) NOT NULL DEFAULT \'\' COMMENT \'Title\'', $dialect->addColumnSql(
+            'widgets',
+            $titleColumn,
+        ));
+        static::assertSame('ALTER TABLE `widgets` MODIFY COLUMN `title` varchar(255) NOT NULL DEFAULT \'\' COMMENT \'Title\'', $dialect->alterColumnSql(
+            'widgets',
+            $titleColumn,
+        ));
+        static::assertSame('ALTER TABLE `widgets` DROP COLUMN `title`', $dialect->dropColumnSql('widgets', 'title'));
 
         $index = $table->getIndex('idx_widgets_title');
         $uniqueIndex = $table->getIndex('uniq_widgets_title');
@@ -109,21 +118,34 @@ final class MysqlDialectTest extends TestCase
         static::assertNotNull($uniqueIndex);
         static::assertNotNull($fulltextIndex);
 
-        static::assertStringContainsString('CREATE INDEX', $dialect->addIndexSql('widgets', $index));
-        static::assertStringContainsString('CREATE UNIQUE INDEX', $dialect->addIndexSql('widgets', $uniqueIndex));
-        static::assertStringContainsString('CREATE FULLTEXT INDEX', $dialect->addIndexSql('widgets', $fulltextIndex));
-        static::assertStringContainsString('DROP INDEX', $dialect->dropIndexSql('widgets', $index));
+        static::assertSame('CREATE INDEX `idx_widgets_title` USING BTREE ON `widgets` (`title`)', $dialect->addIndexSql('widgets', $index));
+        static::assertSame('CREATE UNIQUE INDEX `uniq_widgets_title` USING HASH ON `widgets` (`title`)', $dialect->addIndexSql(
+            'widgets',
+            $uniqueIndex,
+        ));
+        static::assertSame('CREATE FULLTEXT INDEX `ft_widgets_title` ON `widgets` (`title`)', $dialect->addIndexSql(
+            'widgets',
+            $fulltextIndex,
+        ));
+        static::assertSame('DROP INDEX `idx_widgets_title` ON `widgets`', $dialect->dropIndexSql('widgets', $index));
 
         $foreignKey = $table->getForeignKey('fk_widgets_user');
         static::assertNotNull($foreignKey);
-        static::assertStringContainsString('ADD CONSTRAINT `fk_widgets_user`', $dialect->addForeignKeySql('widgets', $foreignKey));
-        static::assertStringContainsString('DROP FOREIGN KEY `fk_widgets_user`', $dialect->dropForeignKeySql('widgets', $foreignKey));
+        static::assertSame(
+            'ALTER TABLE `widgets` ADD CONSTRAINT `fk_widgets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT',
+            $dialect->addForeignKeySql('widgets', $foreignKey),
+        );
+        static::assertSame('ALTER TABLE `widgets` DROP FOREIGN KEY `fk_widgets_user`', $dialect->dropForeignKeySql('widgets', $foreignKey));
 
-        static::assertStringContainsString('ADD PRIMARY KEY', $dialect->addPrimaryKeySql('widgets', ['id']));
-        static::assertStringContainsString('DROP PRIMARY KEY', $dialect->dropPrimaryKeySql('widgets'));
+        static::assertSame('ALTER TABLE `widgets` ADD PRIMARY KEY (`id`)', $dialect->addPrimaryKeySql('widgets', ['id']));
+        static::assertSame('ALTER TABLE `widgets` DROP PRIMARY KEY', $dialect->dropPrimaryKeySql('widgets'));
 
-        static::assertStringContainsString('RENAME TABLE', $dialect->renameTableSql('old_widgets', 'widgets'));
-        static::assertStringContainsString('RENAME COLUMN', $dialect->renameColumnSql('widgets', 'fieldFoo', 'field_foo'));
+        static::assertSame('RENAME TABLE `old_widgets` TO `widgets`', $dialect->renameTableSql('old_widgets', 'widgets'));
+        static::assertSame('ALTER TABLE `widgets` RENAME COLUMN `fieldFoo` TO `field_foo`', $dialect->renameColumnSql(
+            'widgets',
+            'fieldFoo',
+            'field_foo',
+        ));
 
         static::assertTrue($dialect->supportsAlterColumn());
         static::assertTrue($dialect->supportsDropColumn());
@@ -131,7 +153,7 @@ final class MysqlDialectTest extends TestCase
         static::assertTrue($dialect->supportsPrimaryKeyAlter());
     }
 
-    public function testRendersGeneratedAndExpressionIndex(): void
+    public function testRendersGeneratedIndex(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -150,7 +172,13 @@ final class MysqlDialectTest extends TestCase
 
         $dialect = new MysqlDialect();
         $createSql = $dialect->createTableSql($table);
-        static::assertStringContainsString('GENERATED ALWAYS AS (lower(name)) VIRTUAL', $createSql);
+        static::assertSame(
+            "CREATE TABLE `widgets` (\n"
+            . "    `name` varchar(255) NOT NULL,\n"
+            . "    `name_lower` varchar(255) GENERATED ALWAYS AS (lower(name)) VIRTUAL NOT NULL\n"
+            . ')',
+            $createSql,
+        );
 
         $index = new IndexDefinition(
             name: 'idx_widgets_name_expr',
@@ -159,11 +187,10 @@ final class MysqlDialectTest extends TestCase
         );
 
         $indexSql = $dialect->addIndexSql('widgets', $index);
-        static::assertStringContainsString('CREATE INDEX', $indexSql);
-        static::assertStringContainsString('(lower(name))', $indexSql);
+        static::assertSame('CREATE INDEX `idx_widgets_name_expr` ON `widgets` ((lower(name)))', $indexSql);
     }
 
-    public function testRejectsUnsupportedPredicateIndex(): void
+    public function testRejectsPredicateIndex(): void
     {
         $dialect = new MysqlDialect();
 
@@ -175,7 +202,7 @@ final class MysqlDialectTest extends TestCase
         ));
     }
 
-    public function testRendersColumnPrefixLengths(): void
+    public function testRendersColumnPrefixes(): void
     {
         $dialect = new MysqlDialect();
 
@@ -185,6 +212,6 @@ final class MysqlDialectTest extends TestCase
             lengths: ['simple_url' => 191],
         ));
 
-        static::assertStringContainsString('`simple_url`(191)', $sql);
+        static::assertSame('CREATE INDEX `idx_widgets_simple_url` ON `widgets` (`simple_url`(191))', $sql);
     }
 }

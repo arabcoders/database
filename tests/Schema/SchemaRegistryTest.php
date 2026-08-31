@@ -11,7 +11,7 @@ use tests\TestCase;
 
 final class SchemaRegistryTest extends TestCase
 {
-    public function testBuildsSchemaFromAttributes(): void
+    public function testBuildsSchemaAttributes(): void
     {
         $registry = new SchemaRegistry([
             [
@@ -111,7 +111,7 @@ final class SchemaRegistryTest extends TestCase
         static::assertSame('tenant_id IS NOT NULL', $partialUnique->where);
     }
 
-    public function testRejectsExpressionPropertyIndexWithoutName(): void
+    public function testRejectsUnnamedExpression(): void
     {
         $registry = new SchemaRegistry([
             [

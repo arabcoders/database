@@ -18,48 +18,67 @@ use tests\TestCase;
 
 final class SchemaGeneratorTest extends TestCase
 {
-    public function testGenerateBySchemaDialectClassName(): void
+    public function testGenerateBySchema(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, SchemaSqliteDialect::class);
 
         static::assertNotEmpty($sql->up);
-        static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
+        $pdo = $this->memoryPdo();
+        foreach ($sql->up as $statement) {
+            $pdo->exec($statement);
+        }
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn());
     }
 
-    public function testGenerateByDatabaseDialectClassName(): void
+    public function testGenerateByDatabase(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, QuerySqliteDialect::class);
 
         static::assertNotEmpty($sql->up);
-        static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
+        $pdo = $this->memoryPdo();
+        foreach ($sql->up as $statement) {
+            $pdo->exec($statement);
+        }
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn());
     }
 
-    public function testGenerateByDriverName(): void
+    public function testGenerateByDriver(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, 'sqlite');
 
         static::assertNotEmpty($sql->up);
-        static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
+        $pdo = $this->memoryPdo();
+        foreach ($sql->up as $statement) {
+            $pdo->exec($statement);
+        }
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn());
     }
 
-    public function testGenerateByDialectInstance(): void
+    public function testGenerateByDialect(): void
     {
         $sql = SchemaGenerator::generateSchema(UserEntity::class, new SchemaSqliteDialect());
 
         static::assertNotEmpty($sql->up);
-        static::assertStringContainsString('CREATE TABLE "users"', implode("\n", $sql->up));
+        $pdo = $this->memoryPdo();
+        foreach ($sql->up as $statement) {
+            $pdo->exec($statement);
+        }
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn());
     }
 
-    public function testGenerateSchemasForMultipleModels(): void
+    public function testGenerateModelSchemas(): void
     {
         $sql = SchemaGenerator::generateSchemas([UserEntity::class, BlogPostEntity::class], 'sqlite');
 
-        $joined = implode("\n", $sql->up);
-        static::assertStringContainsString('CREATE TABLE "users"', $joined);
-        static::assertStringContainsString('CREATE TABLE "posts"', $joined);
+        $pdo = $this->memoryPdo();
+        foreach ($sql->up as $statement) {
+            $pdo->exec($statement);
+        }
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn());
+        static::assertTrue((bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'posts'")->fetchColumn());
     }
 
-    public function testTableDefinitionReturnsModelTable(): void
+    public function testTableDefinitionReturns(): void
     {
         $table = SchemaGenerator::tableDefinition(UserEntity::class);
 
@@ -67,7 +86,7 @@ final class SchemaGeneratorTest extends TestCase
         static::assertTrue($table->hasColumn('email'));
     }
 
-    public function testSchemaDefinitionReturnsModelTables(): void
+    public function testSchemaDefinitionReturns(): void
     {
         $schema = SchemaGenerator::schemaDefinition([UserEntity::class, BlogPostEntity::class]);
 
@@ -75,14 +94,14 @@ final class SchemaGeneratorTest extends TestCase
         static::assertTrue($schema->hasTable('posts'));
     }
 
-    public function testGenerateRejectsModelWithoutTableAttribute(): void
+    public function testGenerateRejectsModel(): void
     {
         $this->expectException(RuntimeException::class);
 
         SchemaGenerator::generateSchema(self::class, 'sqlite');
     }
 
-    public function testMysqlPreflightRejectsOversizedIndexKeyBytes(): void
+    public function testMysqlLargeIndex(): void
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('exceeds the 3072-byte key limit');
@@ -90,7 +109,7 @@ final class SchemaGeneratorTest extends TestCase
         SchemaGenerator::generateSchema(LongMysqlIndexEntity::class, new SchemaMysqlDialect());
     }
 
-    public function testMysqlPreflightRejectsOverlongManualIdentifierName(): void
+    public function testMysqlPreflightIdentifier(): void
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('exceeds the 64-character identifier limit');
@@ -98,17 +117,13 @@ final class SchemaGeneratorTest extends TestCase
         SchemaGenerator::generateSchema(ManualLongMysqlIdentifierEntity::class, new SchemaMysqlDialect());
     }
 
-    public function testMysqlPreflightAllowsTextIndexWithPrefixLengths(): void
+    public function testMysqlPreflightAllows(): void
     {
         $sql = SchemaGenerator::generateSchema(PrefixMysqlTextIndexEntity::class, new SchemaMysqlDialect());
 
-        static::assertStringContainsString(
-            'CREATE INDEX `idx_profiler_runs_source_id_simple_url`',
-            implode("\n", $sql->up),
-        );
-        static::assertStringContainsString(
-            '`simple_url`(191)',
-            implode("\n", $sql->up),
+        static::assertSame(
+            'CREATE INDEX `idx_profiler_runs_source_id_simple_url` ON `profiler_runs` (`sourceId`, `simple_url`(191))',
+            $sql->up[1] ?? $sql->up[0],
         );
     }
 }

@@ -14,7 +14,7 @@ use RuntimeException;
 
 final class ConditionTest extends TestCase
 {
-    public function testJsonPathEqualsBuildsSqlForMysql(): void
+    public function testJsonPathEquals(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -24,7 +24,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.profile.name', ':p2' => '"Ada"'], $params->all());
     }
 
-    public function testJsonPathNotEqualsBuildsSqlForSqlite(): void
+    public function testJsonPathNot(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -37,7 +37,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.profile.name', ':p2' => '"Ada"', ':p3' => '$'], $params->all());
     }
 
-    public function testJsonPathEqualsBuildsSqlForPostgres(): void
+    public function testJsonPathPostgres(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -47,7 +47,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '{profile,name}', ':p2' => '"Ada"'], $params->all());
     }
 
-    public function testJsonPathContainsBuildsSqlForMysql(): void
+    public function testJsonPathContains(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -57,7 +57,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags', ':p2' => '["alpha"]'], $params->all());
     }
 
-    public function testJsonPathContainsBuildsSqlForSqlite(): void
+    public function testJsonPathSqlite(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -70,7 +70,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags', ':p2' => '"alpha"', ':p3' => '$'], $params->all());
     }
 
-    public function testJsonPathExistsBuildsSqlForPostgres(): void
+    public function testJsonPathExists(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -80,7 +80,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'profile'], $params->all());
     }
 
-    public function testJsonPathInBuildsSqlForMysql(): void
+    public function testJsonPathIn(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -93,7 +93,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.profile.id', ':p2' => '1', ':p3' => '2'], $params->all());
     }
 
-    public function testJsonPathNotInBuildsSqlForSqlite(): void
+    public function testPathNotSqlite(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -106,7 +106,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags[0]', ':p2' => '"alpha"', ':p3' => '$', ':p4' => '"beta"', ':p5' => '$'], $params->all());
     }
 
-    public function testJsonPathInBuildsSqlForPostgres(): void
+    public function testPathInSqlite(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -119,7 +119,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '{profile,id}', ':p2' => '1', ':p3' => '2'], $params->all());
     }
 
-    public function testJsonPathInWithNoValuesShortCircuits(): void
+    public function testPathInPostgres(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -129,7 +129,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testJsonPathNotInWithNoValuesIsTrue(): void
+    public function testPathNotEmpty(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -139,7 +139,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testJsonArrayContainsAnyBuildsSqlForMysql(): void
+    public function testJsonArrayContains(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -152,7 +152,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags', ':p2' => '["alpha"]', ':p3' => '$.tags', ':p4' => '["beta"]'], $params->all());
     }
 
-    public function testJsonArrayContainsAllBuildsSqlForPostgres(): void
+    public function testArrayContainsAll(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -165,7 +165,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '{tags}', ':p2' => '["alpha"]', ':p3' => '["beta"]'], $params->all());
     }
 
-    public function testJsonArrayNotContainsBuildsSqlForSqlite(): void
+    public function testJsonArrayNot(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -178,7 +178,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '$.tags', ':p2' => '"alpha"', ':p3' => '$'], $params->all());
     }
 
-    public function testArrayContainsWithEmptyValuesHonorsMode(): void
+    public function testArrayContainsMode(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -193,7 +193,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testJsonArrayContainsRejectsInvalidMode(): void
+    public function testArrayInvalidMode(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -204,7 +204,7 @@ final class ConditionTest extends TestCase
         $condition->toSql($dialect, $params);
     }
 
-    public function testVectorDistanceBuildsSqlForPostgres(): void
+    public function testVectorDistanceSql(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -214,7 +214,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '[0.1,0.2]', ':p2' => 0.5], $params->all());
     }
 
-    public function testVectorDistanceRejectsUnsupportedDialect(): void
+    public function testVectorDistanceInvalid(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -225,7 +225,7 @@ final class ConditionTest extends TestCase
         $condition->toSql($dialect, $params);
     }
 
-    public function testVectorDistanceRequiresOperatorAndLimit(): void
+    public function testVectorDistanceDimension(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -277,7 +277,7 @@ final class ConditionTest extends TestCase
         static::assertSame('"created_at" BETWEEN :p1 AND :p2', $condition->toSql($dialect, $params));
     }
 
-    public function testInWithNoValuesShortCircuits(): void
+    public function testInWithoutValues(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -287,7 +287,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testNotInWithNoValuesReturnsTrueExpression(): void
+    public function testNotInValues(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -297,7 +297,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testNotEqualsWithNullUsesIsNotNull(): void
+    public function testNotEqualsNull(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -307,7 +307,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testEqualsWithValueBuildsPlaceholder(): void
+    public function testEqualsWithValue(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -317,7 +317,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 7], $params->all());
     }
 
-    public function testNotEqualsWithValueBuildsPlaceholder(): void
+    public function testNotEqualsValue(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -327,7 +327,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 9], $params->all());
     }
 
-    public function testComparisonOperatorsBuildSql(): void
+    public function testComparisonOperatorsBuild(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -341,7 +341,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 10, ':p2' => 20, ':p3' => 30], $params->all());
     }
 
-    public function testIsNullAndIsNotNullBuildSql(): void
+    public function testNullComparisons(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -351,7 +351,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testOrAndRawConditions(): void
+    public function testOrAndRaw(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -363,7 +363,7 @@ final class ConditionTest extends TestCase
         static::assertSame('("email" LIKE :p1) OR (1 = 1)', $condition->toSql($dialect, $params));
     }
 
-    public function testNotLikeBuildsSql(): void
+    public function testNotLikeSql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -373,7 +373,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '%@example.com'], $params->all());
     }
 
-    public function testILikeBuildsSqlForPostgres(): void
+    public function testILikeSql(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -383,7 +383,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '%@example.com'], $params->all());
     }
 
-    public function testNotILikeBuildsSqlForSqliteFallback(): void
+    public function testNotILike(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -393,7 +393,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '%@example.com'], $params->all());
     }
 
-    public function testStartsWithBuildsSql(): void
+    public function testStartsWithSql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -403,7 +403,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'foo%'], $params->all());
     }
 
-    public function testEndsWithBuildsSql(): void
+    public function testEndsWithSql(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -413,7 +413,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '%bar'], $params->all());
     }
 
-    public function testRegexBuildsSqlForMysql(): void
+    public function testRegexBuildsSql(): void
     {
         $dialect = new MysqlDialect();
         $params = new ParameterBag();
@@ -423,7 +423,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '^foo'], $params->all());
     }
 
-    public function testNotRegexBuildsSqlForPostgres(): void
+    public function testNotRegexSql(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -433,7 +433,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '^foo'], $params->all());
     }
 
-    public function testRegexBuildsSqlForSqlite(): void
+    public function testRegexSqlite(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -443,7 +443,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => '^foo'], $params->all());
     }
 
-    public function testIsDistinctFromBuildsSqlForPostgres(): void
+    public function testIsDistinctFrom(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -453,7 +453,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'Ada'], $params->all());
     }
 
-    public function testIsNotDistinctFromBuildsSqlForPostgres(): void
+    public function testIsNotDistinct(): void
     {
         $dialect = new PostgresDialect();
         $params = new ParameterBag();
@@ -463,7 +463,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'Ada'], $params->all());
     }
 
-    public function testIsDistinctFromBuildsFallbackSqlForSqlite(): void
+    public function testDistinctFallback(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -476,7 +476,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'Ada'], $params->all());
     }
 
-    public function testIsNotDistinctFromBuildsSqliteFallback(): void
+    public function testNotDistinctFallback(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -489,7 +489,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'Ada'], $params->all());
     }
 
-    public function testNotConditionBuildsSql(): void
+    public function testNotConditionSql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -499,7 +499,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'active'], $params->all());
     }
 
-    public function testNotInBuildsSql(): void
+    public function testNotInSql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -509,7 +509,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 4, ':p2' => 5], $params->all());
     }
 
-    public function testEmptyCompoundReturnsTrueExpression(): void
+    public function testEmptyCompoundNull(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -518,7 +518,7 @@ final class ConditionTest extends TestCase
         static::assertSame('1 = 1', $condition->toSql($dialect, $params));
     }
 
-    public function testColumnComparisonHelpersBuildSql(): void
+    public function testColumnComparisonHelpers(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -538,7 +538,7 @@ final class ConditionTest extends TestCase
         static::assertSame([], $params->all());
     }
 
-    public function testColumnComparisonRejectsInvalidOperator(): void
+    public function testColumnComparisonRejects(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -549,7 +549,7 @@ final class ConditionTest extends TestCase
         $condition->toSql($dialect, $params);
     }
 
-    public function testExistsBuildsSubquerySql(): void
+    public function testExistsBuildsSubquery(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -566,7 +566,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'open'], $params->all());
     }
 
-    public function testNotExistsBuildsSubquerySql(): void
+    public function testNotExistsSql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -583,7 +583,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'closed'], $params->all());
     }
 
-    public function testInSubqueryBuildsSql(): void
+    public function testInSubquerySql(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -600,7 +600,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'open'], $params->all());
     }
 
-    public function testNotInSubqueryBuildsSql(): void
+    public function testNotInSubquery(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -617,7 +617,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'open'], $params->all());
     }
 
-    public function testSubqueryParametersAreRemapped(): void
+    public function testSubqueryParametersMerge(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();
@@ -637,7 +637,7 @@ final class ConditionTest extends TestCase
         static::assertSame([':p1' => 'active', ':p2' => 10], $params->all());
     }
 
-    public function testSubqueryWithCteIsRejected(): void
+    public function testSubqueryWithCte(): void
     {
         $dialect = new SqliteDialect();
         $params = new ParameterBag();

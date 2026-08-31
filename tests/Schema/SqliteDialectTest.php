@@ -10,6 +10,7 @@ use arabcoders\database\Schema\Definition\ForeignKeyDefinition;
 use arabcoders\database\Schema\Definition\IndexDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Dialect\SqliteDialect;
+use PDO;
 use RuntimeException;
 use tests\TestCase;
 
@@ -63,18 +64,24 @@ final class SqliteDialectTest extends TestCase
         $dialect = new SqliteDialect();
 
         $createSql = $dialect->createTableSql($table);
-        static::assertStringContainsString('PRIMARY KEY', $createSql);
-        static::assertStringContainsString('AUTOINCREMENT', $createSql);
-        static::assertStringContainsString('FOREIGN KEY', $createSql);
+        $pdo = $this->memoryPdo();
+        $pdo->exec($createSql);
+        static::assertSame(
+            ['id', 'name', 'user_id', 'created_at', 'ratio', 'is_active', 'notes', 'maybe'],
+            array_column($pdo->query('PRAGMA table_info("widgets")')->fetchAll(PDO::FETCH_ASSOC), 'name'),
+        );
 
         $index = $table->getIndex('idx_widgets_name');
         static::assertNotNull($index);
-        static::assertStringContainsString('CREATE INDEX', $dialect->addIndexSql('widgets', $index));
-        static::assertStringContainsString('DROP INDEX', $dialect->dropIndexSql('widgets', $index));
+        static::assertSame('CREATE INDEX "idx_widgets_name" ON "widgets" ("name")', $dialect->addIndexSql('widgets', $index));
+        static::assertSame('DROP INDEX IF EXISTS "idx_widgets_name"', $dialect->dropIndexSql('widgets', $index));
 
         $createdColumn = $table->getColumn('created_at');
         static::assertNotNull($createdColumn);
-        static::assertStringContainsString('ADD COLUMN', $dialect->addColumnSql('widgets', $createdColumn));
+        static::assertSame('ALTER TABLE "widgets" ADD COLUMN "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP', $dialect->addColumnSql(
+            'widgets',
+            $createdColumn,
+        ));
         static::assertSame('', $dialect->alterColumnSql('widgets', $createdColumn));
         static::assertSame('', $dialect->dropColumnSql('widgets', 'created_at'));
         $foreignKey = new ForeignKeyDefinition('fk_widgets_user', ['user_id'], 'users', ['id']);
@@ -82,9 +89,13 @@ final class SqliteDialectTest extends TestCase
         static::assertSame('', $dialect->dropForeignKeySql('widgets', $foreignKey));
         static::assertSame('', $dialect->addPrimaryKeySql('widgets', ['id']));
         static::assertSame('', $dialect->dropPrimaryKeySql('widgets'));
-        static::assertStringContainsString('DROP TABLE', $dialect->dropTableSql('widgets'));
-        static::assertStringContainsString('RENAME TO', $dialect->renameTableSql('old_widgets', 'widgets'));
-        static::assertStringContainsString('RENAME COLUMN', $dialect->renameColumnSql('widgets', 'fieldFoo', 'field_foo'));
+        static::assertSame('DROP TABLE IF EXISTS "widgets"', $dialect->dropTableSql('widgets'));
+        static::assertSame('ALTER TABLE "old_widgets" RENAME TO "widgets"', $dialect->renameTableSql('old_widgets', 'widgets'));
+        static::assertSame('ALTER TABLE "widgets" RENAME COLUMN "fieldFoo" TO "field_foo"', $dialect->renameColumnSql(
+            'widgets',
+            'fieldFoo',
+            'field_foo',
+        ));
 
         static::assertFalse($dialect->supportsAlterColumn());
         static::assertFalse($dialect->supportsDropColumn());
@@ -92,7 +103,7 @@ final class SqliteDialectTest extends TestCase
         static::assertFalse($dialect->supportsPrimaryKeyAlter());
     }
 
-    public function testRebuildTableSqlCopiesDataAndIndexes(): void
+    public function testRebuildTableSql(): void
     {
         $fromTable = new TableDefinition('widgets');
         $fromTable->addColumn(new ColumnDefinition('id', ColumnType::Int, autoIncrement: true));
@@ -109,13 +120,19 @@ final class SqliteDialectTest extends TestCase
         $dialect = new SqliteDialect();
         $sql = $dialect->rebuildTableSql($fromTable, $toTable);
 
-        $joined = implode("\n", $sql);
-        static::assertStringContainsString('RENAME TO', $joined);
-        static::assertStringContainsString('INSERT INTO', $joined);
-        static::assertStringContainsString('CREATE INDEX', $joined);
+        static::assertSame(
+            [
+                'ALTER TABLE "widgets" RENAME TO "_tmp_widgets_old"',
+                "CREATE TABLE \"widgets\" (\n    \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"description\" TEXT NULL\n)",
+                'INSERT INTO "widgets" ("id", "name") SELECT "id", "name" FROM "_tmp_widgets_old"',
+                'DROP TABLE "_tmp_widgets_old"',
+                'CREATE INDEX "idx_widgets_name" ON "widgets" ("name")',
+            ],
+            $sql,
+        );
     }
 
-    public function testSupportsPartialAndExpressionIndexes(): void
+    public function testSupportsPartialExpression(): void
     {
         $dialect = new SqliteDialect();
 
@@ -124,17 +141,17 @@ final class SqliteDialectTest extends TestCase
             columns: ['name'],
             where: 'deleted_at IS NULL',
         ));
-        static::assertStringContainsString('WHERE deleted_at IS NULL', $partialSql);
+        static::assertSame('CREATE INDEX "idx_widgets_partial" ON "widgets" ("name") WHERE deleted_at IS NULL', $partialSql);
 
         $expressionSql = $dialect->addIndexSql('widgets', new IndexDefinition(
             name: 'idx_widgets_expr',
             columns: [],
             expression: '(lower(name))',
         ));
-        static::assertStringContainsString('((lower(name)))', $expressionSql);
+        static::assertSame('CREATE INDEX "idx_widgets_expr" ON "widgets" ((lower(name)))', $expressionSql);
     }
 
-    public function testRejectsUnsupportedIndexType(): void
+    public function testRejectsUnsupportedIndex(): void
     {
         $dialect = new SqliteDialect();
 

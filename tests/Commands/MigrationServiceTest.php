@@ -7,18 +7,17 @@ namespace tests\Commands;
 use arabcoders\database\Commands\MigrationRequest;
 use arabcoders\database\Commands\MigrationService;
 use PDO;
-use ReflectionClass;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
-use tests\TestCase;
+use tests\Support\DatabaseTestCase;
 
-final class MigrationServiceTest extends TestCase
+final class MigrationServiceTest extends DatabaseTestCase
 {
-    public function testListShowsChecksumAndLock(): void
+    public function testListShowsChecksum(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service = new MigrationService($pdo, $this->fixturePath(TestWidgetsMigration::class));
 
         $initial = $service->list();
         static::assertArrayHasKey('locked', $initial->lock);
@@ -38,12 +37,12 @@ final class MigrationServiceTest extends TestCase
         static::assertNull($migration['error']);
     }
 
-    public function testListShowsChecksumMismatch(): void
+    public function testListMismatch(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service = new MigrationService($pdo, $this->fixturePath(TestWidgetsMigration::class));
         $service->migrate(new MigrationRequest(direction: 'up', dryRun: false));
 
         $pdo->exec("UPDATE migration_version SET checksum = 'broken' WHERE version = '1'");
@@ -54,12 +53,12 @@ final class MigrationServiceTest extends TestCase
         static::assertSame('Stored checksum does not match migration file.', $result->migrations[0]['error']);
     }
 
-    public function testListShowsActiveLock(): void
+    public function testListShowsActive(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service = new MigrationService($pdo, $this->fixturePath(TestWidgetsMigration::class));
         $service->list();
 
         $pdo->exec("INSERT INTO migration_lock (lock_key, holder, acquired_at) VALUES ('schema_migration', 'ci-runner', 123)");
@@ -70,12 +69,12 @@ final class MigrationServiceTest extends TestCase
         static::assertSame(123, $result->lock['acquired_at']);
     }
 
-    public function testProbeShowsPendingWithoutMetadataTables(): void
+    public function testProbeShowsPending(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service = new MigrationService($pdo, $this->fixturePath(TestWidgetsMigration::class));
         $result = $service->probe(new MigrationRequest(direction: 'up', dryRun: false));
 
         static::assertSame('up', $result->direction);
@@ -83,39 +82,29 @@ final class MigrationServiceTest extends TestCase
         static::assertCount(1, $result->migrations);
         static::assertFalse((bool) $result->lock['locked']);
         static::assertSame([], $result->issues);
-        static::assertFalse($this->tableExists($pdo, 'migration_version'));
-        static::assertFalse($this->tableExists($pdo, 'migration_lock'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'migration_version'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'migration_lock'));
     }
 
-    public function testProbeShowsChecksumIssues(): void
+    public function testProbeShowsChecksum(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $service = new MigrationService($pdo, $this->migrationFixturePath());
+        $service = new MigrationService($pdo, $this->fixturePath(TestWidgetsMigration::class));
         $service->migrate(new MigrationRequest(direction: 'up', dryRun: false));
 
+        $checksum = $pdo->query("SELECT checksum FROM migration_version WHERE version = '1'")->fetchColumn();
+        static::assertIsString($checksum);
         $pdo->exec("UPDATE migration_version SET checksum = 'broken' WHERE version = '1'");
 
         $result = $service->probe(new MigrationRequest(direction: 'up', dryRun: false));
 
         static::assertFalse($result->needed);
         static::assertCount(1, $result->issues);
-        static::assertStringContainsString('Checksum mismatch for migration version 1. Stored: broken, current: ', $result->issues[0]);
-    }
-
-    private function tableExists(PDO $pdo, string $name): bool
-    {
-        $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = :name");
-        $stmt->execute(['name' => $name]);
-
-        return false !== $stmt->fetchColumn();
-    }
-
-    private function migrationFixturePath(): string
-    {
-        $reflection = new ReflectionClass(TestWidgetsMigration::class);
-
-        return dirname((string) $reflection->getFileName());
+        static::assertSame(
+            'Checksum mismatch for migration version 1. Stored: broken, current: ' . $checksum . '.',
+            $result->issues[0],
+        );
     }
 }

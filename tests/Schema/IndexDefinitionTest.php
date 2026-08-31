@@ -9,7 +9,7 @@ use tests\TestCase;
 
 final class IndexDefinitionTest extends TestCase
 {
-    public function testEqualsMatchesIndexProperties(): void
+    public function testEqualsMatchesIndex(): void
     {
         $indexA = new IndexDefinition('idx_widgets_title', ['title'], unique: false, type: 'index', algorithm: ['mysql' => 'btree']);
         $indexB = new IndexDefinition('idx_widgets_title', ['title'], unique: false, type: 'index', algorithm: ['mysql' => 'btree']);
@@ -20,7 +20,7 @@ final class IndexDefinitionTest extends TestCase
         static::assertFalse($indexA->equals($indexC));
     }
 
-    public function testEqualsMatchesPredicateAndExpression(): void
+    public function testEqualsMatchesPredicate(): void
     {
         $indexA = new IndexDefinition(
             'idx_widgets_expr',
@@ -53,7 +53,7 @@ final class IndexDefinitionTest extends TestCase
         static::assertFalse($indexA->equals($indexC));
     }
 
-    public function testEqualsMatchesPrefixLengths(): void
+    public function testEqualsMatchesPrefix(): void
     {
         $indexA = new IndexDefinition('idx_widgets_url', ['simple_url'], lengths: ['simple_url' => 191]);
         $indexB = new IndexDefinition('idx_widgets_url', ['simple_url'], lengths: ['simple_url' => 191]);

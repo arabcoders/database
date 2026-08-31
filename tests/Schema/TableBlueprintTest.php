@@ -11,7 +11,7 @@ use tests\TestCase;
 
 final class TableBlueprintTest extends TestCase
 {
-    public function testExpressionIndexRequiresExplicitName(): void
+    public function testExpressionIndexName(): void
     {
         $blueprint = new Blueprint();
 
@@ -23,7 +23,7 @@ final class TableBlueprintTest extends TestCase
         });
     }
 
-    public function testDropIndexPreservesDefinitionMetadata(): void
+    public function testDropIndexMetadata(): void
     {
         $blueprint = new Blueprint();
 

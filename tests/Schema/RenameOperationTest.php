@@ -10,14 +10,14 @@ use tests\TestCase;
 
 final class RenameOperationTest extends TestCase
 {
-    public function testRenameTableOperationMetadata(): void
+    public function testRenameTableOperation(): void
     {
         $operation = new RenameTableOperation('legacy', 'current');
         static::assertSame('rename_table', $operation->getType());
         static::assertSame('current', $operation->getTableName());
     }
 
-    public function testRenameColumnOperationMetadata(): void
+    public function testRenameColumnOperation(): void
     {
         $operation = new RenameColumnOperation('widgets', 'fieldFoo', 'field_foo');
         static::assertSame('rename_column', $operation->getType());

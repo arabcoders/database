@@ -9,7 +9,7 @@ use arabcoders\database\Query\Identifier;
 
 final class IdentifierTest extends TestCase
 {
-    public function testIdentifierQuotesQualifiedNames(): void
+    public function testIdentifierQuotesQualified(): void
     {
         $dialect = new SqliteDialect();
 
@@ -17,14 +17,14 @@ final class IdentifierTest extends TestCase
         static::assertSame('*', Identifier::quote($dialect, '*'));
     }
 
-    public function testIdentifierQuotesQualifiedWildcard(): void
+    public function testIdentifierWildcard(): void
     {
         $dialect = new SqliteDialect();
 
         static::assertSame('"users".*', Identifier::quote($dialect, 'users.*'));
     }
 
-    public function testIdentifierQuotesWithAlias(): void
+    public function testIdentifierQuotesSegments(): void
     {
         $dialect = new SqliteDialect();
 

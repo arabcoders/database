@@ -12,7 +12,7 @@ use tests\TestCase;
 
 final class SchemaIntrospectorPostgresTest extends TestCase
 {
-    public function testPostgresIntrospectionKeepsExpressionIndex(): void
+    public function testPostgresKeepsExpression(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('pgsql');

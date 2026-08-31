@@ -14,7 +14,7 @@ use tests\fixtures\UserEntity;
 
 final class OrmManagerTest extends TestCase
 {
-    public function testOrmManagerCachesRepositories(): void
+    public function testOrmManagerCaches(): void
     {
         $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
@@ -26,7 +26,7 @@ final class OrmManagerTest extends TestCase
         static::assertSame($firstRepo, $secondRepo);
     }
 
-    public function testOrmManagerClearResetsCache(): void
+    public function testOrmManagerClear(): void
     {
         $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
@@ -39,7 +39,7 @@ final class OrmManagerTest extends TestCase
         static::assertNotSame($repo, $manager->repository(UserEntity::class));
     }
 
-    public function testOrmManagerResolvesByConnectionName(): void
+    public function testResolvesModel(): void
     {
         $defaultPdo = $this->memoryPdo();
         $analyticsPdo = $this->memoryPdo();
@@ -61,7 +61,7 @@ final class OrmManagerTest extends TestCase
         static::assertSame($analyticsConnection, $analyticsRepo->connection());
     }
 
-    public function testOrmManagerUsingConnectionSwitchesDefault(): void
+    public function testOrmManagerUsing(): void
     {
         $defaultPdo = $this->memoryPdo();
         $reportingPdo = $this->memoryPdo();
@@ -80,7 +80,7 @@ final class OrmManagerTest extends TestCase
         static::assertSame($reportingConnection, $repo->connection());
     }
 
-    public function testOrmManagerNamedConnectionRequiresManager(): void
+    public function testOrmManagerNamed(): void
     {
         $pdo = $this->memoryPdo();
         $connection = new Connection($pdo, new SqliteDialect());
@@ -91,7 +91,7 @@ final class OrmManagerTest extends TestCase
         $manager->repository(UserEntity::class, 'analytics');
     }
 
-    public function testOrmManagerTracksManagerDefault(): void
+    public function testTracksConnections(): void
     {
         $defaultPdo = $this->memoryPdo();
         $analyticsPdo = $this->memoryPdo();

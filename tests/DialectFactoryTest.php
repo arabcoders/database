@@ -13,7 +13,7 @@ use RuntimeException;
 
 final class DialectFactoryTest extends TestCase
 {
-    public function testFactoryResolvesSqliteDialect(): void
+    public function testFactoryResolvesSqlite(): void
     {
         $pdo = $this->memoryPdo();
         $dialect = DialectFactory::fromPdo($pdo);
@@ -21,7 +21,7 @@ final class DialectFactoryTest extends TestCase
         static::assertInstanceOf(SqliteDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesMysqlDialect(): void
+    public function testFactoryResolvesMysql(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('mysql');
@@ -30,7 +30,7 @@ final class DialectFactoryTest extends TestCase
         static::assertInstanceOf(MysqlDialect::class, $dialect);
     }
 
-    public function testFactoryResolvesPostgresDialect(): void
+    public function testFactoryResolvesPostgres(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('pgsql');
@@ -39,7 +39,7 @@ final class DialectFactoryTest extends TestCase
         static::assertInstanceOf(PostgresDialect::class, $dialect);
     }
 
-    public function testFactoryRejectsUnknownDriver(): void
+    public function testFactoryRejectsUnknown(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('sqlsrv');

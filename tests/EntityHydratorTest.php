@@ -14,7 +14,7 @@ use tests\fixtures\UserEntity;
 
 final class EntityHydratorTest extends TestCase
 {
-    public function testMapsColumnsToProperties(): void
+    public function testMapsColumns(): void
     {
         $factory = new EntityMetadataFactory();
         $metadata = $factory->fromClass(UserEntity::class);
@@ -64,7 +64,7 @@ final class EntityHydratorTest extends TestCase
         static::assertNull($entity->tags);
     }
 
-    public function testHydratesFreshDirtyAwareEntity(): void
+    public function testHydratesFreshDirty(): void
     {
         $factory = new EntityMetadataFactory();
         $metadata = $factory->fromClass(DirtyAwareUserEntity::class);
@@ -83,7 +83,7 @@ final class EntityHydratorTest extends TestCase
         static::assertSame([], $entity->diff());
     }
 
-    public function testKeepsDirtyAwarePartialHydrateClean(): void
+    public function testKeepsDirtyAware(): void
     {
         $factory = new EntityMetadataFactory();
         $metadata = $factory->fromClass(DirtyAwareUserEntity::class);
@@ -102,7 +102,7 @@ final class EntityHydratorTest extends TestCase
         static::assertSame([], $entity->diff());
     }
 
-    public function testPreservesDirtyFieldsWhenEntityOptsIn(): void
+    public function testPreservesDirtyFields(): void
     {
         $factory = new EntityMetadataFactory();
         $metadata = $factory->fromClass(DirtyAwareUserEntity::class);
@@ -126,7 +126,7 @@ final class EntityHydratorTest extends TestCase
         static::assertSame(['displayName' => 'Dirty'], $entity->diff());
     }
 
-    public function testKeepsLegacyOverwriteDefault(): void
+    public function testKeepsLegacyOverwrite(): void
     {
         $factory = new EntityMetadataFactory();
         $metadata = $factory->fromClass(ProtectedModelEntity::class);

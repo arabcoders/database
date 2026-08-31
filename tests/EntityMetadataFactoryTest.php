@@ -78,7 +78,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertCount(3, $meta->validatorsByProperty['username']);
     }
 
-    public function testRegistersPhaseAwareValidators(): void
+    public function testRegistersPhaseAware(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(PhaseValidatedEntity::class);
@@ -89,7 +89,7 @@ final class EntityMetadataFactoryTest extends TestCase
         static::assertContains(\arabcoders\database\Validator\ValidationType::CREATE, $meta->validatorsByProperty['username'][0]['types']);
     }
 
-    public function testRejectsInvalidValidatorTypes(): void
+    public function testRejectsInvalidValidator(): void
     {
         $factory = new EntityMetadataFactory();
 
@@ -98,7 +98,7 @@ final class EntityMetadataFactoryTest extends TestCase
         $factory->fromClass(InvalidValidationTypeEntity::class);
     }
 
-    public function testInfersNullableTransformArg(): void
+    public function testInfersNullableTransform(): void
     {
         $factory = new EntityMetadataFactory();
         $meta = $factory->fromClass(AutoNullableTransformEntity::class);
