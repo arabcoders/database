@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Commands;
 
-use arabcoders\database\Connection;
-use arabcoders\database\Dialect\DialectFactory;
+use arabcoders\database\Dialect\SqliteDialect;
 use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Migration\MigrationRegistry;
+use arabcoders\database\Schema\Migration\MigrationReplay;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigration;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
-use PDO;
 use RuntimeException;
 
 final readonly class MigrationSquasher
@@ -60,22 +59,25 @@ final readonly class MigrationSquasher
         $fromSchema = new SchemaDefinition();
         $toSchema = new SchemaDefinition();
 
-        // Use an in-memory PDO + Connection to execute migration callables into a Blueprint only
-        $scratchPdo = new PDO('sqlite::memory:');
-        $scratchPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $scratchConnection = new Connection($scratchPdo, DialectFactory::fromPdo($scratchPdo));
-
-        for ($i = $startIndex; $i <= $endIndex; $i++) {
+        $state = new SchemaDefinition();
+        for ($i = 0; $i <= $endIndex; $i++) {
             $instance = $this->createMigrationInstance($definitions[$i]->class);
-            $blueprint = new Blueprint();
-            $instance($scratchConnection, $blueprint);
+            $blueprint = new Blueprint($state);
+            MigrationReplay::invoke($instance, $blueprint, new SqliteDialect());
 
-            $diff = $blueprint->toDiff();
-            $this->mergeSchema($fromSchema, $diff->from);
-            $this->mergeSchema($toSchema, $diff->to);
+            $diff = $blueprint->toHistoricalDiff($state);
+            if ($i === $startIndex) {
+                $fromSchema = $diff->from;
+            }
+            $state = $diff->to;
+            if ($i >= $startIndex) {
+                $toSchema = $diff->to;
+            }
 
-            foreach ($diff->getOperations() as $op) {
-                $combinedOperations[] = $op;
+            if ($i >= $startIndex) {
+                foreach ($diff->getOperations() as $op) {
+                    $combinedOperations[] = $op;
+                }
             }
         }
 
@@ -84,11 +86,14 @@ final readonly class MigrationSquasher
         }
 
         $exporter = new SchemaBlueprintMigrationExporter();
-        $plan = new SchemaMigrationPlan($fromSchema, $toSchema, $combinedOperations);
-
         $latest = $definitions[$endIndex];
         $shortLatestClass = preg_replace('/.*\\\\/', '', $latest->class) ?: $latest->class;
-        $newContents = $exporter->export($plan, $shortLatestClass, $latest->id, $latest->name);
+        $newContents = $exporter->export(
+            new SchemaMigrationPlan($fromSchema, $toSchema, $combinedOperations),
+            $shortLatestClass,
+            $latest->id,
+            $latest->name,
+        );
         $latestFile = $this->migrationDirectory . DIRECTORY_SEPARATOR . $shortLatestClass . '.php';
 
         $deleted = [];
@@ -158,12 +163,5 @@ final readonly class MigrationSquasher
         }
 
         return $instance;
-    }
-
-    private function mergeSchema(SchemaDefinition $target, SchemaDefinition $source): void
-    {
-        foreach ($source->getTables() as $table) {
-            $target->addTable($table);
-        }
     }
 }

@@ -20,10 +20,15 @@ final class TemplateWriter
         string $connectionShort,
         string $blueprintShort,
         string $body,
+        bool $changeMethod = false,
     ): string {
         $usesBlock = $this->renderUses($uses);
         $idValue = $this->exportValue($id);
         $nameValue = $this->exportValue($name);
+        $methodName = $changeMethod ? 'change' : '__invoke';
+        $signature = $changeMethod
+            ? "{$blueprintShort} \$blueprint"
+            : "{$connectionShort} \$runner, {$blueprintShort} \$blueprint";
 
         return <<<PHP
             <?php
@@ -36,7 +41,7 @@ final class TemplateWriter
             #[{$attributeShort}(id: {$idValue}, name: {$nameValue})]
             final class {$className} extends {$baseClassShort}
             {
-                public function __invoke({$connectionShort} \$runner, {$blueprintShort} \$blueprint): void
+                public function {$methodName}({$signature}): void
                 {{$body}
                 }
             }

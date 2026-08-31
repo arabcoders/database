@@ -76,6 +76,7 @@ final readonly class MigrationFileRenderer
             connectionShort: $imports['connection'],
             blueprintShort: $imports['blueprint'],
             body: $body,
+            changeMethod: true,
         );
     }
 

@@ -4,50 +4,59 @@ declare(strict_types=1);
 
 namespace tests\Schema\Migration;
 
+use arabcoders\database\Commands\MigrationRequest;
+use arabcoders\database\Commands\MigrationService;
 use arabcoders\database\DatabaseException;
+use arabcoders\database\Schema\Definition\ColumnDefinition;
+use arabcoders\database\Schema\Definition\ColumnType;
+use arabcoders\database\Schema\Definition\SchemaDefinition;
+use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
 use arabcoders\database\Schema\Migration\MigrationChecksumMismatchException;
 use arabcoders\database\Schema\Migration\MigrationLockException;
 use arabcoders\database\Schema\Migration\MigrationRegistry;
+use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use PDO;
 use PDOStatement;
-use ReflectionClass;
 use tests\fixtures\FailingPdo;
 use tests\fixtures\FakeMysqlAutoCommitPdo;
 use tests\fixtures\Schema\BrokenMigration\TestBrokenIndexMigration;
+use tests\fixtures\Schema\HistoricalReplay\AddPostTitleMigration;
+use tests\fixtures\Schema\HistoricalReplay\CreateAccountsAndPostsMigration;
 use tests\fixtures\Schema\Migration\TestWidgetsMigration;
-use tests\TestCase;
+use tests\fixtures\Schema\SequentialPending\CreateWidgetsMigration;
+use tests\Support\DatabaseTestCase;
 
-final class BlueprintMigrationRunnerTest extends TestCase
+final class BlueprintMigrationRunnerTest extends DatabaseTestCase
 {
-    public function testRunnerAppliesUpAndDown(): void
+    public function testRunnerAppliesBoth(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->migrate('up');
-        static::assertTrue($this->tableExists($pdo, 'widgets'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'widgets'));
 
         $runner->migrate('down');
-        static::assertFalse($this->tableExists($pdo, 'widgets'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'widgets'));
     }
 
-    public function testRunnerRejectsInvalidDirection(): void
+    public function testRunnerRejectsInvalid(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $this->expectException(\RuntimeException::class);
         $runner->migrate('sideways');
     }
 
-    public function testRunnerCreatesPostgresVersionTable(): void
+    public function testRunnerCreatesPostgres(): void
     {
         $pdo = $this->createStub(PDO::class);
         $pdo->method('getAttribute')->willReturn('pgsql');
@@ -68,7 +77,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $queryStmt->method('fetchAll')->willReturn([]);
         $pdo->method('query')->willReturn($queryStmt);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->listMigrations();
@@ -77,12 +86,12 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertTrue($matched);
     }
 
-    public function testRunnerFailsOnChecksumMismatch(): void
+    public function testFailsChecksumMismatch(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->migrate('up', false);
@@ -97,7 +106,7 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->migrate('up', false);
@@ -113,12 +122,12 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertNull($migrations[0]['error']);
     }
 
-    public function testRunnerFailsWhenLockIsHeld(): void
+    public function testFailsWhenLocked(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $runner->listMigrations();
@@ -128,12 +137,12 @@ final class BlueprintMigrationRunnerTest extends TestCase
         $runner->migrate('up', false);
     }
 
-    public function testProbeShowsPendingWithoutMetadataTables(): void
+    public function testProbeShowsPending(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $result = $runner->probe('up');
@@ -143,16 +152,16 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertCount(1, $result['migrations']);
         static::assertFalse((bool) $result['lock']['locked']);
         static::assertSame([], $result['issues']);
-        static::assertFalse($this->tableExists($pdo, 'migration_version'));
-        static::assertFalse($this->tableExists($pdo, 'migration_lock'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'migration_version'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'migration_lock'));
     }
 
-    public function testProbeShowsCurrentLockWithoutVersionTable(): void
+    public function testProbeShowsCurrent(): void
     {
         $pdo = $this->memoryPdo();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $pdo->exec('CREATE TABLE migration_lock (lock_key TEXT PRIMARY KEY, holder TEXT NOT NULL, acquired_at INTEGER NOT NULL)');
@@ -163,13 +172,13 @@ final class BlueprintMigrationRunnerTest extends TestCase
         static::assertTrue((bool) $result['lock']['locked']);
         static::assertSame('other-runner', $result['lock']['holder']);
         static::assertSame(1, $result['lock']['acquired_at']);
-        static::assertFalse($this->tableExists($pdo, 'migration_version'));
+        static::assertFalse($this->sqliteTableExists($pdo, 'migration_version'));
     }
 
-    public function testRunnerWrapsMetadataQueryErrors(): void
+    public function testRunnerWrapsMetadata(): void
     {
         $pdo = $this->memoryPdo(FailingPdo::class);
-        $registry = new MigrationRegistry([$this->migrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestWidgetsMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         try {
@@ -184,10 +193,10 @@ final class BlueprintMigrationRunnerTest extends TestCase
         }
     }
 
-    public function testMysqlFailedMigrationCleansUpCommittedSchemaChanges(): void
+    public function testMysqlFailedMigration(): void
     {
         $pdo = new FakeMysqlAutoCommitPdo();
-        $registry = new MigrationRegistry([$this->brokenIndexMigrationFixturePath()]);
+        $registry = new MigrationRegistry([$this->fixturePath(TestBrokenIndexMigration::class)]);
         $runner = new BlueprintMigrationRunner($pdo, $registry);
 
         $this->expectException(DatabaseException::class);
@@ -196,32 +205,92 @@ final class BlueprintMigrationRunnerTest extends TestCase
         try {
             $runner->migrate('up', false, 1);
         } finally {
-            static::assertFalse($this->tableExists($pdo, 'broken_widgets'));
+            static::assertFalse($this->sqliteTableExists($pdo, 'broken_widgets'));
 
             $stmt = $pdo->query("SELECT COUNT(*) FROM migration_version WHERE version = '1'");
             static::assertSame('0', (string) $stmt->fetchColumn());
         }
     }
 
-    private function tableExists(PDO $pdo, string $name): bool
+    public function testHistoricalReplaySchema(): void
     {
-        $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = :name");
-        $stmt->execute(['name' => $name]);
+        $pdo = $this->memoryPdo();
+        $registry = new MigrationRegistry([$this->fixturePath(CreateAccountsAndPostsMigration::class)]);
+        $runner = new BlueprintMigrationRunner($pdo, $registry);
 
-        return false !== $stmt->fetchColumn();
+        $pdo->exec('CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+        $pdo->exec('CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL)');
+        $runner->markAppliedUpTo('2');
+        $runner->migrate('up');
+
+        static::assertTrue($this->sqliteTableExists($pdo, 'accounts'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'posts'));
+        static::assertTrue($this->sqliteColumnExists($pdo, 'posts', 'title'));
+        static::assertFalse($this->sqliteColumnExists($pdo, 'accounts', 'email'));
     }
 
-    private function migrationFixturePath(): string
+    public function testMigrationOrder(): void
     {
-        $reflection = new ReflectionClass(TestWidgetsMigration::class);
+        $pdo = $this->memoryPdo();
+        $service = new MigrationService($pdo, $this->fixturePath(CreateWidgetsMigration::class));
 
-        return dirname((string) $reflection->getFileName());
+        $pendingUp = $service->migrate(new MigrationRequest(direction: 'up', dryRun: true));
+        $upSql = $service->buildDryRunSql('up', $pendingUp->migrations);
+        static::assertCount(2, $upSql);
+
+        $isolated = $this->memoryPdo();
+        foreach ($upSql as $migration) {
+            foreach ($migration['statements'] as $statement) {
+                $isolated->exec($statement);
+            }
+        }
+        static::assertTrue($this->sqliteTableExists($isolated, 'pending_widgets'));
+        static::assertTrue($this->sqliteColumnExists($isolated, 'pending_widgets', 'name'));
+
+        $service->migrate(new MigrationRequest(direction: 'up', dryRun: false));
+
+        $pending = $service->migrate(new MigrationRequest(direction: 'down', dryRun: true, steps: 2));
+        $sql = $service->buildDryRunSql('down', $pending->migrations);
+        static::assertCount(2, $sql);
+
+        foreach ($sql as $migration) {
+            foreach ($migration['statements'] as $statement) {
+                $isolated->exec($statement);
+            }
+        }
+        static::assertFalse($this->sqliteTableExists($isolated, 'pending_widgets'));
+
+        $service->migrate(new MigrationRequest(direction: 'down', dryRun: false, steps: 2));
+        static::assertFalse($this->sqliteTableExists($pdo, 'pending_widgets'));
     }
 
-    private function brokenIndexMigrationFixturePath(): string
+    public function testMysqlHistoricalReplay(): void
     {
-        $reflection = new ReflectionClass(TestBrokenIndexMigration::class);
+        $pdo = new FakeMysqlAutoCommitPdo();
+        $runner = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$this->fixturePath(CreateAccountsAndPostsMigration::class)]),
+        );
 
-        return dirname((string) $reflection->getFileName());
+        $diffs = $runner->historicalDiffs();
+
+        static::assertArrayHasKey('3', $diffs);
+        static::assertSame([], $pdo->executed);
+    }
+
+    public function testProvidedHistoricalState(): void
+    {
+        $pdo = new FakeMysqlAutoCommitPdo();
+        $migration = new AddPostTitleMigration();
+        $before = new SchemaDefinition();
+        $posts = new TableDefinition('posts');
+        $posts->addColumn(new ColumnDefinition('id', ColumnType::Int));
+        $before->addTable($posts);
+        $pdo->exec('CREATE TABLE posts (id INTEGER)');
+
+        new SchemaBlueprintRunner($pdo)->run($migration, 'up', $before);
+
+        static::assertTrue($this->sqliteColumnExists($pdo, 'posts', 'title'));
+        static::assertFalse(array_any($pdo->executed, static fn(string $sql): bool => str_contains($sql, 'information_schema')));
     }
 }

@@ -16,6 +16,11 @@ final class SchemaDefinition
         $this->tables[$table->name] = $table;
     }
 
+    public function removeTable(string $name): void
+    {
+        unset($this->tables[$name]);
+    }
+
     public function hasTable(string $name): bool
     {
         return isset($this->tables[$name]);

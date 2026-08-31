@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace arabcoders\database\Schema\Migration;
 
+use arabcoders\database\Connection;
 use arabcoders\database\DatabaseException;
+use arabcoders\database\Dialect\DialectFactory;
 use arabcoders\database\PdoOperations;
+use arabcoders\database\Schema\Blueprint\Blueprint;
+use arabcoders\database\Schema\Definition\SchemaDefinition;
+use arabcoders\database\Schema\SchemaDiff;
 use PDO;
 use ReflectionClass;
 use RuntimeException;
@@ -144,6 +149,27 @@ final class BlueprintMigrationRunner
         }, $migrations);
     }
 
+    /** @return array<string,SchemaDiff> */
+    public function historicalDiffs(): array
+    {
+        $state = new SchemaDefinition();
+        $diffs = [];
+        $replayDialect = DialectFactory::fromPdo($this->pdo);
+        foreach ($this->registry->all() as $definition) {
+            $migration = new $definition->class();
+            if (!$migration instanceof SchemaBlueprintMigration) {
+                throw new RuntimeException(sprintf('Migration %s must extend %s.', $definition->class, SchemaBlueprintMigration::class));
+            }
+            $blueprint = new Blueprint($state);
+            MigrationReplay::invoke($migration, $blueprint, $replayDialect);
+            $diff = $blueprint->toHistoricalDiff($state);
+            $diffs[(string) $definition->id] = $diff;
+            $state = $diff->to;
+        }
+
+        return $diffs;
+    }
+
     /**
      * @return array{table:string,locked:bool,holder:?string,acquired_at:?int}
      */
@@ -254,6 +280,7 @@ final class BlueprintMigrationRunner
 
         $pending = $this->selectUpMigrations($migrations, $this->getAppliedVersions(), $steps);
 
+        $history = $this->historicalDiffs();
         $ran = [];
         foreach ($pending as $migration) {
             $ran[] = $migration;
@@ -262,8 +289,8 @@ final class BlueprintMigrationRunner
                 continue;
             }
 
-            $this->runInTransaction(function () use ($migration): void {
-                $this->runMigration((string) $migration['class'], 'up');
+            $this->runInTransaction(function () use ($migration, $history): void {
+                $this->runMigration((string) $migration['class'], 'up', $history[(string) $migration['id']]->from ?? null);
                 $this->insertVersion(
                     (string) $migration['id'],
                     (string) $migration['name'],
@@ -292,6 +319,7 @@ final class BlueprintMigrationRunner
         }
 
         $targets = array_slice($applied, 0, $steps);
+        $history = $this->historicalDiffs();
         $ran = [];
 
         foreach ($targets as $version) {
@@ -307,8 +335,8 @@ final class BlueprintMigrationRunner
                 continue;
             }
 
-            $this->runInTransaction(function () use ($migration, $version): void {
-                $this->runMigration((string) $migration['class'], 'down');
+            $this->runInTransaction(function () use ($migration, $version, $history): void {
+                $this->runMigration((string) $migration['class'], 'down', $history[(string) $migration['id']]->from ?? null);
                 $this->deleteVersion($version);
             });
         }
@@ -340,14 +368,14 @@ final class BlueprintMigrationRunner
         return $direction;
     }
 
-    private function runMigration(string $class, string $direction): void
+    private function runMigration(string $class, string $direction, ?SchemaDefinition $before = null): void
     {
         $instance = new $class();
         if (!$instance instanceof SchemaBlueprintMigration) {
             throw new RuntimeException(sprintf('Migration %s must extend %s.', $class, SchemaBlueprintMigration::class));
         }
 
-        new SchemaBlueprintRunner($this->pdo)->run($instance, $direction);
+        new SchemaBlueprintRunner($this->pdo)->run($instance, $direction, $before);
     }
 
     /**

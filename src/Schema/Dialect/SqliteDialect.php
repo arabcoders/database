@@ -268,20 +268,39 @@ final class SqliteDialect extends AbstractSchemaDialect
 
         $sql[] = $this->createTableSql($to);
 
-        $columnsToCopy = array_values(array_intersect(
-            array_keys($from->getColumns()),
-            array_keys($to->getColumns()),
-        ));
+        $targetColumns = [];
+        $sourceColumns = [];
+        foreach ($to->getColumns() as $targetName => $targetColumn) {
+            $sourceName = null;
+            if ($from->hasColumn($targetName)) {
+                $sourceName = $targetName;
+            } elseif (null !== $targetColumn->previousName && $from->hasColumn($targetColumn->previousName)) {
+                $sourceName = $targetColumn->previousName;
+            } else {
+                foreach ($from->getColumns() as $candidate) {
+                    if ($candidate->previousName !== $targetName) {
+                        continue;
+                    }
+                    $sourceName = $candidate->name;
+                    break;
+                }
+            }
 
-        if (!empty($columnsToCopy)) {
-            $quoted = $this->quoteColumns($columnsToCopy);
+            if (null === $sourceName) {
+                continue;
+            }
+            $targetColumns[] = $targetName;
+            $sourceColumns[] = $sourceName;
+        }
+
+        if ([] !== $targetColumns) {
             $sql[] =
                 'INSERT INTO '
                 . $this->quoteIdentifier($to->name)
                 . ' ('
-                . $quoted
+                . $this->quoteColumns($targetColumns)
                 . ') SELECT '
-                . $quoted
+                . $this->quoteColumns($sourceColumns)
                 . ' FROM '
                 . $this->quoteIdentifier($temp);
         }

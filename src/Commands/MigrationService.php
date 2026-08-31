@@ -99,6 +99,7 @@ final readonly class MigrationService
         $direction = strtolower($direction);
         $dialect = SchemaDialectFactory::fromPdo($this->pdo);
         $renderer = new SchemaSqlRenderer($dialect);
+        $historicalDiffs = $this->runner()->historicalDiffs();
         $result = [];
 
         foreach ($migrations as $definition) {
@@ -109,10 +110,12 @@ final readonly class MigrationService
             }
 
             $connection = new Connection($this->pdo, DialectFactory::fromPdo($this->pdo));
-            $blueprint = new Blueprint();
-            $instance($connection, $blueprint);
-
-            $diff = $blueprint->toDiff();
+            $diff = $historicalDiffs[(string) $definition['id']] ?? null;
+            if (null === $diff) {
+                $blueprint = new Blueprint();
+                $instance($connection, $blueprint);
+                $diff = $blueprint->toDiff();
+            }
             $sql = $renderer->render($diff);
             $statements = 'down' === $direction ? $sql->down : $sql->up;
 

@@ -8,9 +8,11 @@ use arabcoders\database\Connection;
 use arabcoders\database\Dialect\DialectFactory;
 use arabcoders\database\PdoOperations;
 use arabcoders\database\Schema\Blueprint\Blueprint;
+use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
 use arabcoders\database\Schema\MigrationSql;
 use arabcoders\database\Schema\MigrationSqlStep;
+use arabcoders\database\Schema\SchemaIntrospector;
 use arabcoders\database\Schema\SchemaSqlRenderer;
 use PDO;
 use RuntimeException;
@@ -34,7 +36,7 @@ final readonly class SchemaBlueprintRunner
      * @throws RuntimeException
      */
 
-    public function run(SchemaBlueprintMigration $migration, string $direction): void
+    public function run(SchemaBlueprintMigration $migration, string $direction, ?SchemaDefinition $before = null): void
     {
         $direction = strtolower($direction);
         if (!in_array($direction, ['up', 'down'], true)) {
@@ -42,7 +44,10 @@ final readonly class SchemaBlueprintRunner
         }
 
         $connection = new Connection($this->pdo, DialectFactory::fromPdo($this->pdo));
-        $blueprint = new Blueprint();
+        if (null === $before) {
+            $before = new SchemaIntrospector($this->pdo)->introspect();
+        }
+        $blueprint = new Blueprint($before);
 
         $migration($connection, $blueprint);
 

@@ -14,9 +14,9 @@ use arabcoders\database\Schema\Migration\SchemaDefinitionSerializer;
 use arabcoders\database\Schema\Migration\SchemaOperationSerializer;
 use arabcoders\database\Schema\Operation\DropColumnOperation;
 use PDO;
-use tests\TestCase;
+use tests\Support\DatabaseTestCase;
 
-final class MigrationSquasherTest extends TestCase
+final class MigrationSquasherTest extends DatabaseTestCase
 {
     private function makeMigrationFile(string $dir, string $id, string $body): string
     {
@@ -40,6 +40,36 @@ final class MigrationSquasherTest extends TestCase
             final class {$class} extends SchemaBlueprintMigration
             {
                 public function __invoke(Connection \$runner, Blueprint \$blueprint): void
+                {
+            $body
+                }
+            }
+            PHP;
+        file_put_contents($file, $content);
+        return $file;
+    }
+
+    private function makeCompactMigrationFile(string $dir, string $id, string $body): string
+    {
+        $class = 'Migration_' . $id;
+        $file = $dir . DIRECTORY_SEPARATOR . $class . '.php';
+        $content = <<<PHP
+            <?php
+
+            declare(strict_types=1);
+
+            namespace Migration;
+
+            use arabcoders\database\Attributes\Migration;
+            use arabcoders\database\Schema\Blueprint\Blueprint;
+            use arabcoders\database\Schema\Blueprint\TableBlueprint;
+            use arabcoders\database\Schema\Definition\ColumnType;
+            use arabcoders\database\Schema\Migration\SchemaBlueprintMigration;
+
+            #[Migration(id: '$id', name: 'm_$id')]
+            final class {$class} extends SchemaBlueprintMigration
+            {
+                public function change(Blueprint \$blueprint): void
                 {
             $body
                 }
@@ -82,7 +112,7 @@ final class MigrationSquasherTest extends TestCase
         return $file;
     }
 
-    public function testSquashDryRunCombinesOps(): void
+    public function testSquashDryRun(): void
     {
         $tmp = $this->tempDir('migration-squash');
 
@@ -111,16 +141,20 @@ final class MigrationSquasherTest extends TestCase
 
         static::assertSame('0001', $report['start']);
         static::assertSame('0003', $report['end']);
-        static::assertStringContainsString("createTable('a'", $report['newContents']);
-        static::assertStringContainsString("createTable('b'", $report['newContents']);
-        static::assertStringContainsString("createTable('c'", $report['newContents']);
+
+        $class = $this->evaluateMigration($report['newContents'], 'Migration_0003');
+        $pdo = $this->memoryPdo();
+        new SchemaBlueprintRunner($pdo)->run(new $class(), 'up');
+        static::assertTrue($this->sqliteTableExists($pdo, 'a'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'b'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'c'));
 
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0001.php');
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0002.php');
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_0003.php');
     }
 
-    public function testSquashApplyRewritesLatest(): void
+    public function testSquashApplyRewrites(): void
     {
         $tmp = $this->tempDir('migration-squash');
 
@@ -152,12 +186,16 @@ final class MigrationSquasherTest extends TestCase
         static::assertFileExists($tmp . DIRECTORY_SEPARATOR . 'Migration_1003.php');
 
         $latestContent = file_get_contents($tmp . DIRECTORY_SEPARATOR . 'Migration_1003.php');
-        static::assertStringContainsString("createTable('x'", $latestContent);
-        static::assertStringContainsString("createTable('y'", $latestContent);
-        static::assertStringContainsString("createTable('z'", $latestContent);
+        static::assertIsString($latestContent);
+        $class = $this->evaluateMigration($latestContent, 'Migration_1003');
+        $pdo = $this->memoryPdo();
+        new SchemaBlueprintRunner($pdo)->run(new $class(), 'up');
+        static::assertTrue($this->sqliteTableExists($pdo, 'x'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'y'));
+        static::assertTrue($this->sqliteTableExists($pdo, 'z'));
     }
 
-    public function testSquashKeepsPlanForSqliteRebuild(): void
+    public function testSquashKeepsPlan(): void
     {
         $tmp = $this->tempDir('migration-squash');
         $pdo = $this->memoryPdo();
@@ -192,7 +230,7 @@ final class MigrationSquasherTest extends TestCase
             "        \$blueprint->table('widgets', static function (TableBlueprint \$t): void {\n            \$t->dropColumn('legacy');\n        });\n",
             $planPayload,
         );
-        $f2 = $this->makeMigrationFile(
+        $f2 = $this->makeCompactMigrationFile(
             $tmp,
             '2002',
             "        \$blueprint->table('widgets', static function (TableBlueprint \$t): void {\n            \$t->index('name', 'idx_widgets_name');\n        });\n",
@@ -204,21 +242,15 @@ final class MigrationSquasherTest extends TestCase
         $squasher = new MigrationSquasher($tmp);
         $report = $squasher->squash('2001', false);
 
-        static::assertStringContainsString("'from' => ['tables' => [['name' => 'widgets'", $report['newContents']);
-        static::assertStringContainsString("dropColumn('legacy')", $report['newContents']);
-        static::assertStringContainsString("'idx_widgets_name'", $report['newContents']);
-
         $class = $this->evaluateMigration($report['newContents'], 'Migration_2002');
         new SchemaBlueprintRunner($pdo)->run(new $class(), 'up');
 
-        $columns = $pdo->query('PRAGMA table_info(widgets)')->fetchAll(PDO::FETCH_ASSOC);
-        $columnNames = array_map(static fn(array $column): string => (string) $column['name'], $columns);
         $indexes = $pdo->query(
             "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='widgets' ORDER BY name",
         )->fetchAll(PDO::FETCH_COLUMN);
 
-        static::assertSame(['id', 'name'], $columnNames);
-        static::assertNotFalse($indexes);
+        static::assertSame(['id', 'name'], $this->sqliteColumnNames($pdo, 'widgets'));
+        static::assertSame(['idx_widgets_name'], $indexes);
     }
 
     private function evaluateMigration(string $contents, string $className): string

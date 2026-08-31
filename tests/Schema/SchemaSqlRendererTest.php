@@ -24,7 +24,7 @@ use tests\TestCase;
 
 final class SchemaSqlRendererTest extends TestCase
 {
-    public function testSqliteUsesRebuildForColumnChanges(): void
+    public function testSqliteUsesRebuild(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -44,12 +44,18 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new SqliteDialect());
         $sql = $renderer->render($diff);
-        $hasRename = array_any($sql->up, fn($statement) => str_contains((string) $statement, 'RENAME TO'));
-
-        static::assertTrue($hasRename);
+        static::assertSame(
+            [
+                'ALTER TABLE "widgets" RENAME TO "_tmp_widgets_old"',
+                "CREATE TABLE \"widgets\" (\n    \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"description\" TEXT NULL\n)",
+                'INSERT INTO "widgets" ("id", "name") SELECT "id", "name" FROM "_tmp_widgets_old"',
+                'DROP TABLE "_tmp_widgets_old"',
+            ],
+            $sql->up,
+        );
     }
 
-    public function testMysqlGeneratesSqlForOperations(): void
+    public function testMysqlGeneratesSql(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -77,23 +83,37 @@ final class SchemaSqlRendererTest extends TestCase
         $renderer = new SchemaSqlRenderer(new MysqlDialect());
         $sql = $renderer->render($diff);
 
-        $upSql = implode("\n", $sql->up);
-        static::assertStringContainsString('ALTER TABLE `widgets` DROP COLUMN `legacy`', $upSql);
-        static::assertStringContainsString('ALTER TABLE `widgets` ADD COLUMN', $upSql);
-        static::assertStringContainsString('ALTER TABLE `widgets` MODIFY COLUMN', $upSql);
-        static::assertStringContainsString('DROP INDEX `idx_widgets_name`', $upSql);
-        static::assertStringContainsString('CREATE INDEX `idx_widgets_user`', $upSql);
-        static::assertStringContainsString('DROP FOREIGN KEY `fk_widgets_user`', $upSql);
-        static::assertStringContainsString('ADD CONSTRAINT `fk_widgets_user`', $upSql);
-        static::assertStringContainsString('DROP PRIMARY KEY', $upSql);
-        static::assertStringContainsString('ADD PRIMARY KEY', $upSql);
-
-        $downSql = implode("\n", $sql->down);
-        static::assertStringContainsString('ADD COLUMN', $downSql);
-        static::assertStringContainsString('DROP COLUMN', $downSql);
+        static::assertSame(
+            [
+                'ALTER TABLE `widgets` DROP FOREIGN KEY `fk_widgets_user`',
+                'DROP INDEX `idx_widgets_name` ON `widgets`',
+                'ALTER TABLE `widgets` DROP PRIMARY KEY',
+                'ALTER TABLE `widgets` DROP COLUMN `legacy`',
+                'ALTER TABLE `widgets` ADD COLUMN `description` text NULL',
+                'ALTER TABLE `widgets` MODIFY COLUMN `name` varchar(255) NOT NULL',
+                'ALTER TABLE `widgets` ADD PRIMARY KEY (`id`, `user_id`)',
+                'CREATE INDEX `idx_widgets_user` ON `widgets` (`user_id`)',
+                'ALTER TABLE `widgets` ADD CONSTRAINT `fk_widgets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT',
+            ],
+            $sql->up,
+        );
+        static::assertSame(
+            [
+                'ALTER TABLE `widgets` DROP FOREIGN KEY `fk_widgets_user`',
+                'DROP INDEX `idx_widgets_user` ON `widgets`',
+                'ALTER TABLE `widgets` DROP PRIMARY KEY',
+                'ALTER TABLE `widgets` MODIFY COLUMN `name` varchar(100) NOT NULL',
+                'ALTER TABLE `widgets` DROP COLUMN `description`',
+                'ALTER TABLE `widgets` ADD COLUMN `legacy` text NULL',
+                'ALTER TABLE `widgets` ADD PRIMARY KEY (`id`)',
+                'CREATE INDEX `idx_widgets_name` ON `widgets` (`name`)',
+                'ALTER TABLE `widgets` ADD CONSTRAINT `fk_widgets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT',
+            ],
+            $sql->down,
+        );
     }
 
-    public function testMysqlDefersForeignKeysUntilCreateDone(): void
+    public function testMysqlDefersForeign(): void
     {
         $fromSchema = new SchemaDefinition();
 
@@ -114,44 +134,25 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new MysqlDialect());
         $sql = $renderer->render($diff);
-
-        $fooCreateSql = null;
-        foreach ($sql->up as $statement) {
-            if (!str_contains($statement, 'CREATE TABLE `foo`')) {
-                continue;
-            }
-
-            $fooCreateSql = $statement;
-            break;
-        }
-
-        static::assertNotNull($fooCreateSql);
-        static::assertStringNotContainsString('FOREIGN KEY', $fooCreateSql);
-
-        $upSql = implode("\n", $sql->up);
-        $fooCreatePos = strpos($upSql, 'CREATE TABLE `foo`');
-        $barCreatePos = strpos($upSql, 'CREATE TABLE `bar`');
-        $addConstraintPos = strpos($upSql, 'ADD CONSTRAINT `fk_foo_bar`');
-
-        static::assertIsInt($fooCreatePos);
-        static::assertIsInt($barCreatePos);
-        static::assertIsInt($addConstraintPos);
-        static::assertGreaterThan($fooCreatePos, $addConstraintPos);
-        static::assertGreaterThan($barCreatePos, $addConstraintPos);
-
-        $downSql = implode("\n", $sql->down);
-        $dropConstraintPos = strpos($downSql, 'DROP FOREIGN KEY `fk_foo_bar`');
-        $dropFooPos = strpos($downSql, 'DROP TABLE IF EXISTS `foo`');
-        $dropBarPos = strpos($downSql, 'DROP TABLE IF EXISTS `bar`');
-
-        static::assertIsInt($dropConstraintPos);
-        static::assertIsInt($dropFooPos);
-        static::assertIsInt($dropBarPos);
-        static::assertLessThan($dropFooPos, $dropConstraintPos);
-        static::assertLessThan($dropBarPos, $dropConstraintPos);
+        static::assertSame(
+            [
+                "CREATE TABLE `foo` (\n    `id` int(11) NOT NULL AUTO_INCREMENT,\n    `bar_id` int(11) NOT NULL,\n    PRIMARY KEY (`id`)\n)",
+                "CREATE TABLE `bar` (\n    `id` int(11) NOT NULL AUTO_INCREMENT,\n    PRIMARY KEY (`id`)\n)",
+                'ALTER TABLE `foo` ADD CONSTRAINT `fk_foo_bar` FOREIGN KEY (`bar_id`) REFERENCES `bar` (`id`)',
+            ],
+            $sql->up,
+        );
+        static::assertSame(
+            [
+                'ALTER TABLE `foo` DROP FOREIGN KEY `fk_foo_bar`',
+                'DROP TABLE IF EXISTS `bar`',
+                'DROP TABLE IF EXISTS `foo`',
+            ],
+            $sql->down,
+        );
     }
 
-    public function testPostgresDefersForeignKeysUntilCreateDone(): void
+    public function testPostgresDefersForeign(): void
     {
         $fromSchema = new SchemaDefinition();
 
@@ -172,44 +173,25 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new PostgresDialect());
         $sql = $renderer->render($diff);
-
-        $fooCreateSql = null;
-        foreach ($sql->up as $statement) {
-            if (!str_contains($statement, 'CREATE TABLE "foo"')) {
-                continue;
-            }
-
-            $fooCreateSql = $statement;
-            break;
-        }
-
-        static::assertNotNull($fooCreateSql);
-        static::assertStringNotContainsString('FOREIGN KEY', $fooCreateSql);
-
-        $upSql = implode("\n", $sql->up);
-        $fooCreatePos = strpos($upSql, 'CREATE TABLE "foo"');
-        $barCreatePos = strpos($upSql, 'CREATE TABLE "bar"');
-        $addConstraintPos = strpos($upSql, 'ADD CONSTRAINT "fk_foo_bar"');
-
-        static::assertIsInt($fooCreatePos);
-        static::assertIsInt($barCreatePos);
-        static::assertIsInt($addConstraintPos);
-        static::assertGreaterThan($fooCreatePos, $addConstraintPos);
-        static::assertGreaterThan($barCreatePos, $addConstraintPos);
-
-        $downSql = implode("\n", $sql->down);
-        $dropConstraintPos = strpos($downSql, 'DROP CONSTRAINT "fk_foo_bar"');
-        $dropFooPos = strpos($downSql, 'DROP TABLE IF EXISTS "foo"');
-        $dropBarPos = strpos($downSql, 'DROP TABLE IF EXISTS "bar"');
-
-        static::assertIsInt($dropConstraintPos);
-        static::assertIsInt($dropFooPos);
-        static::assertIsInt($dropBarPos);
-        static::assertLessThan($dropFooPos, $dropConstraintPos);
-        static::assertLessThan($dropBarPos, $dropConstraintPos);
+        static::assertSame(
+            [
+                "CREATE TABLE \"foo\" (\n    \"id\" integer NOT NULL GENERATED BY DEFAULT AS IDENTITY,\n    \"bar_id\" integer NOT NULL,\n    PRIMARY KEY (\"id\")\n)",
+                "CREATE TABLE \"bar\" (\n    \"id\" integer NOT NULL GENERATED BY DEFAULT AS IDENTITY,\n    PRIMARY KEY (\"id\")\n)",
+                'ALTER TABLE "foo" ADD CONSTRAINT "fk_foo_bar" FOREIGN KEY ("bar_id") REFERENCES "bar" ("id")',
+            ],
+            $sql->up,
+        );
+        static::assertSame(
+            [
+                'ALTER TABLE "foo" DROP CONSTRAINT "fk_foo_bar"',
+                'DROP TABLE IF EXISTS "bar"',
+                'DROP TABLE IF EXISTS "foo"',
+            ],
+            $sql->down,
+        );
     }
 
-    public function testMysqlHandlesRenameOperations(): void
+    public function testMysqlHandlesRename(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('legacy_widgets');
@@ -229,13 +211,23 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new MysqlDialect());
         $sql = $renderer->render($diff);
-
-        $upSql = implode("\n", $sql->up);
-        static::assertStringContainsString('RENAME TABLE `legacy_widgets` TO `widgets`', $upSql);
-        static::assertStringContainsString('RENAME COLUMN `fieldFoo` TO `field_foo`', $upSql);
+        static::assertSame(
+            [
+                'RENAME TABLE `legacy_widgets` TO `widgets`',
+                'ALTER TABLE `widgets` RENAME COLUMN `fieldFoo` TO `field_foo`',
+            ],
+            $sql->up,
+        );
+        static::assertSame(
+            [
+                'ALTER TABLE `widgets` RENAME COLUMN `field_foo` TO `fieldFoo`',
+                'RENAME TABLE `widgets` TO `legacy_widgets`',
+            ],
+            $sql->down,
+        );
     }
 
-    public function testMysqlSupportsEnumSetAndChecks(): void
+    public function testMysqlSupportsEnum(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -258,15 +250,13 @@ final class SchemaSqlRendererTest extends TestCase
 
         $sql = new MysqlDialect()->createTableSql($table);
 
-        static::assertStringContainsString('`status` enum', $sql);
-        static::assertStringContainsString("'draft'", $sql);
-        static::assertStringContainsString("'published'", $sql);
-        static::assertStringContainsString('`flags` set', $sql);
-        static::assertStringContainsString('CHECK (`status` IN', $sql);
-        static::assertStringContainsString('CHECK (score >= 0)', $sql);
+        static::assertSame(
+            "CREATE TABLE `widgets` (\n    `status` enum('draft', 'published') NOT NULL CHECK (`status` IN ('draft', 'published')),\n    `flags` set('a', 'b') NULL CHECK (`flags` IN ('a', 'b')),\n    `score` int NOT NULL CHECK (score >= 0)\n)",
+            $sql,
+        );
     }
 
-    public function testPostgresSupportsConstraintsAndNetworkTypes(): void
+    public function testPostgresSupportsConstraints(): void
     {
         $table = new TableDefinition('widgets');
         $table->addColumn(new ColumnDefinition(
@@ -295,12 +285,10 @@ final class SchemaSqlRendererTest extends TestCase
 
         $sql = new PostgresDialect()->createTableSql($table);
 
-        static::assertStringContainsString('"status" text', $sql);
-        static::assertStringContainsString('"ip" inet', $sql);
-        static::assertStringContainsString('"mac" macaddr', $sql);
-        static::assertStringContainsString('"uuid" uuid', $sql);
-        static::assertStringContainsString('CHECK ("status" IN', $sql);
-        static::assertStringContainsString('CHECK (score >= 0)', $sql);
+        static::assertSame(
+            "CREATE TABLE \"widgets\" (\n    \"status\" text NOT NULL CHECK (\"status\" IN ('draft', 'published')),\n    \"ip\" inet NOT NULL,\n    \"mac\" macaddr NOT NULL,\n    \"uuid\" uuid NOT NULL,\n    \"score\" integer NOT NULL CHECK (score >= 0)\n)",
+            $sql,
+        );
     }
 
     public function testSqliteSupportsChecks(): void
@@ -320,12 +308,13 @@ final class SchemaSqlRendererTest extends TestCase
 
         $sql = new SqliteDialect()->createTableSql($table);
 
-        static::assertStringContainsString('"status" TEXT', $sql);
-        static::assertStringContainsString('CHECK ("status" IN', $sql);
-        static::assertStringContainsString('CHECK (score >= 0)', $sql);
+        static::assertSame(
+            "CREATE TABLE \"widgets\" (\n    \"status\" TEXT NOT NULL CHECK (\"status\" IN ('draft', 'published')),\n    \"score\" INTEGER NOT NULL CHECK (score >= 0)\n)",
+            $sql,
+        );
     }
 
-    public function testSqliteHandlesRenameColumn(): void
+    public function testSqliteHandlesRename(): void
     {
         $fromSchema = new SchemaDefinition();
         $fromTable = new TableDefinition('widgets');
@@ -344,12 +333,46 @@ final class SchemaSqlRendererTest extends TestCase
         $diff = new SchemaDiffer()->diff($fromSchema, $toSchema);
         $renderer = new SchemaSqlRenderer(new SqliteDialect());
         $sql = $renderer->render($diff);
-
-        $joined = implode("\n", $sql->up);
-        static::assertStringContainsString('RENAME COLUMN', $joined);
+        static::assertSame(['ALTER TABLE "widgets" RENAME COLUMN "fieldFoo" TO "field_foo"'], $sql->up);
     }
 
-    public function testRebuildOperationExposesMetadata(): void
+    public function testSqliteRebuildCopies(): void
+    {
+        $fromSchema = new SchemaDefinition();
+        $fromTable = new TableDefinition('widgets');
+        $fromTable->addColumn(new ColumnDefinition('id', ColumnType::Int));
+        $fromTable->addColumn(new ColumnDefinition('legacy_name', ColumnType::Text));
+        $fromTable->addColumn(new ColumnDefinition('obsolete', ColumnType::Text, nullable: true));
+        $fromSchema->addTable($fromTable);
+
+        $toSchema = new SchemaDefinition();
+        $toTable = new TableDefinition('widgets');
+        $toTable->addColumn(new ColumnDefinition('id', ColumnType::Int));
+        $toTable->addColumn(new ColumnDefinition('name', ColumnType::Text, previousName: 'legacy_name'));
+        $toSchema->addTable($toTable);
+
+        $sql = new SchemaSqlRenderer(new SqliteDialect())->render(new SchemaDiffer()->diff($fromSchema, $toSchema));
+        static::assertSame(
+            [
+                'ALTER TABLE "widgets" RENAME TO "_tmp_widgets_old"',
+                "CREATE TABLE \"widgets\" (\n    \"id\" INTEGER NOT NULL,\n    \"name\" TEXT NOT NULL\n)",
+                'INSERT INTO "widgets" ("id", "name") SELECT "id", "legacy_name" FROM "_tmp_widgets_old"',
+                'DROP TABLE "_tmp_widgets_old"',
+            ],
+            $sql->up,
+        );
+        static::assertSame(
+            [
+                'ALTER TABLE "widgets" RENAME TO "_tmp_widgets_old"',
+                "CREATE TABLE \"widgets\" (\n    \"id\" INTEGER NOT NULL,\n    \"legacy_name\" TEXT NOT NULL,\n    \"obsolete\" TEXT NULL\n)",
+                'INSERT INTO "widgets" ("id", "legacy_name") SELECT "id", "name" FROM "_tmp_widgets_old"',
+                'DROP TABLE "_tmp_widgets_old"',
+            ],
+            $sql->down,
+        );
+    }
+
+    public function testRebuildOperationExposes(): void
     {
         $fromTable = new TableDefinition('widgets');
         $toTable = new TableDefinition('widgets');
@@ -359,9 +382,8 @@ final class SchemaSqlRendererTest extends TestCase
         static::assertSame('widgets', $operation->getTableName());
     }
 
-    public function testFlattensArrayReturnsFromDialect(): void
+    public function testFlattensDialectStatements(): void
     {
-        // Test that SchemaSqlRenderer properly flattens arrays returned from dialect methods
         $diff = new SchemaDiff(new SchemaDefinition(), new SchemaDefinition(), [
             new AddIndexOperation('users', new IndexDefinition(
                 'uniq_users_email',
@@ -374,22 +396,11 @@ final class SchemaSqlRendererTest extends TestCase
 
         $renderer = new SchemaSqlRenderer(new PostgresDialect());
         $sql = $renderer->render($diff);
-
-        // All statements should be strings (flattened)
-        foreach ($sql->up as $statement) {
-            static::assertIsString($statement);
-        }
-        foreach ($sql->down as $statement) {
-            static::assertIsString($statement);
-        }
-
-        // Should contain CREATE UNIQUE INDEX with BTREE (hash falls back to btree for unique)
-        $upSql = implode("\n", $sql->up);
-        static::assertStringContainsString('CREATE UNIQUE INDEX', $upSql);
-        static::assertStringContainsString('USING BTREE', $upSql);
+        static::assertSame(['CREATE UNIQUE INDEX "uniq_users_email" ON "users" USING BTREE ("email")'], $sql->up);
+        static::assertSame(['DROP INDEX IF EXISTS "uniq_users_email"'], $sql->down);
     }
 
-    public function testRollsBackDroppedIndexesWithMetadata(): void
+    public function testRollsBackDropped(): void
     {
         $blueprint = new Blueprint();
         $blueprint->table('widgets', static function ($table): void {
@@ -400,10 +411,22 @@ final class SchemaSqlRendererTest extends TestCase
 
         foreach ([new MysqlDialect(), new SqliteDialect(), new PostgresDialect()] as $dialect) {
             $sql = new SchemaSqlRenderer($dialect)->render($diff);
-
-            static::assertNotEmpty($sql->up);
-            static::assertNotEmpty($sql->down);
-            static::assertStringContainsString('idx_widgets_name', implode("\n", $sql->down));
+            static::assertSame(
+                match ($dialect->name()) {
+                    'mysql' => ['DROP INDEX `idx_widgets_name` ON `widgets`'],
+                    'sqlite' => ['DROP INDEX IF EXISTS "idx_widgets_name"'],
+                    'pgsql' => ['DROP INDEX IF EXISTS "idx_widgets_name"'],
+                },
+                $sql->up,
+            );
+            static::assertSame(
+                match ($dialect->name()) {
+                    'mysql' => ['CREATE INDEX `idx_widgets_name` ON `widgets` (`name`)'],
+                    'sqlite' => ['CREATE INDEX "idx_widgets_name" ON "widgets" ("name")'],
+                    'pgsql' => ['CREATE INDEX "idx_widgets_name" ON "widgets" USING BTREE ("name")'],
+                },
+                $sql->down,
+            );
         }
     }
 }

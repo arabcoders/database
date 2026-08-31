@@ -20,9 +20,9 @@ use tests\TestCase;
 
 final class MigrationCreatorTest extends TestCase
 {
-    public function testAutogenPreviewMatchesCurrentSql(): void
+    public function testAutogenPreviewApplies(): void
     {
-        $pdo = $this->createSqliteConnection();
+        $pdo = $this->memoryPdo();
         $this->createUserProfileTable($pdo, includeDisplayName: false);
         $this->createUserProfileModelIndexes($pdo);
 
@@ -34,28 +34,23 @@ final class MigrationCreatorTest extends TestCase
         );
 
         static::assertInstanceOf(MigrationPreview::class, $result);
-        $sql = implode("\n", $result->up);
-        static::assertStringContainsString('RENAME TO "_tmp_user_profile_old"', $sql);
-        static::assertStringContainsString('"display_name" VARCHAR(255) NOT NULL', $sql);
+        $previewPdo = $this->memoryPdo();
+        $previewPdo->exec('CREATE TABLE user_profile (id INTEGER PRIMARY KEY AUTOINCREMENT, email VARCHAR(255) NOT NULL)');
+        $this->createUserProfileModelIndexes($previewPdo);
+        foreach ($result->up as $statement) {
+            $previewPdo->exec($statement);
+        }
+
+        $schema = new SchemaIntrospector($previewPdo)->introspect();
+        static::assertNotNull($schema->getTable('user_profile')?->getColumn('display_name'));
     }
 
-    public function testAutogenAugmenterRemovesExternalIndexDrops(): void
+    public function testAutogenPreservesIndexes(): void
     {
-        $pdo = $this->createSqliteConnection();
+        $pdo = $this->memoryPdo();
         $this->createUserProfileTable($pdo, includeDisplayName: false);
         $this->createUserProfileModelIndexes($pdo);
         $this->createUserProfileExternalIndexes($pdo);
-
-        $baseline = $this->creator()->createAutogen(
-            'preserve external indexes',
-            $pdo,
-            $this->userProfileModelPaths(),
-            dryRun: false,
-            idGenerator: static fn(): string => '240101000001',
-        );
-        static::assertInstanceOf(MigrationDraft::class, $baseline);
-        static::assertStringContainsString("dropIndex('idx_user_profile_email_external'", $baseline->contents);
-        static::assertStringContainsString("dropIndex('idx_user_profile_email_lower_external'", $baseline->contents);
 
         $result = $this->creator()->createAutogenWithOptions(
             'preserve external indexes',
@@ -69,29 +64,23 @@ final class MigrationCreatorTest extends TestCase
         );
 
         static::assertInstanceOf(MigrationDraft::class, $result);
-        static::assertStringContainsString('display_name', $result->contents);
-        static::assertStringNotContainsString("dropIndex('idx_user_profile_email_external'", $result->contents);
-        static::assertStringNotContainsString("dropIndex('idx_user_profile_email_lower_external'", $result->contents);
+        $this->creator()->persist($result);
+        require_once $result->filePath;
+        $class = 'Migration\\' . $result->className;
+        new SchemaBlueprintRunner($pdo)->run(new $class(), 'up');
+
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertNotNull($schema->getTable('user_profile')?->getColumn('display_name'));
+        static::assertNotNull($schema->getTable('user_profile')?->getIndex('idx_user_profile_email_external'));
+        static::assertNotNull($schema->getTable('user_profile')?->getIndex('idx_user_profile_email_lower_external'));
     }
 
-    public function testAutogenAugmenterRecreatesExternalIndexes(): void
+    public function testAutogenAugmenterRecreates(): void
     {
-        $pdo = $this->createSqliteConnection();
+        $pdo = $this->memoryPdo();
         $this->createUserProfileTable($pdo, includeLegacy: true);
         $this->createUserProfileModelIndexes($pdo);
         $this->createUserProfileExternalIndexes($pdo);
-
-        $baseline = $this->creator()->createAutogen(
-            'drop legacy column',
-            $pdo,
-            $this->userProfileModelPaths(),
-            dryRun: true,
-        );
-        static::assertInstanceOf(MigrationPreview::class, $baseline);
-        $baselineSql = implode("\n", $baseline->up);
-        static::assertStringContainsString('RENAME TO "_tmp_user_profile_old"', $baselineSql);
-        static::assertStringNotContainsString('idx_user_profile_email_external', $baselineSql);
-        static::assertStringNotContainsString('idx_user_profile_email_lower_external', $baselineSql);
 
         $result = $this->creator()->createAutogenWithOptions(
             'drop legacy column',
@@ -104,18 +93,25 @@ final class MigrationCreatorTest extends TestCase
         );
 
         static::assertInstanceOf(MigrationPreview::class, $result);
-        $sql = implode("\n", $result->up);
-        static::assertStringContainsString('RENAME TO "_tmp_user_profile_old"', $sql);
-        static::assertStringContainsString('CREATE INDEX "idx_user_profile_email_external" ON "user_profile" ("email")', $sql);
-        static::assertStringContainsString('CREATE INDEX "idx_user_profile_email_lower_external" ON "user_profile" ((lower(email)))', $sql);
+        foreach ($result->up as $statement) {
+            $pdo->exec($statement);
+        }
+
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertNull($schema->getTable('user_profile')?->getColumn('legacy'));
+        static::assertNotNull($schema->getTable('user_profile')?->getIndex('idx_user_profile_email_external'));
+        static::assertNotNull($schema->getTable('user_profile')?->getIndex('idx_user_profile_email_lower_external'));
     }
 
-    public function testAutogenMigrationPreservesExternalIndexes(): void
+    public function testAutogenMigrationPreserves(): void
     {
-        $pdo = $this->createSqliteConnection();
+        $pdo = $this->memoryPdo();
         $this->createUserProfileTable($pdo, includeLegacy: true);
         $this->createUserProfileModelIndexes($pdo);
         $this->createUserProfileExternalIndexes($pdo);
+        $pdo->exec(
+            "INSERT INTO user_profile (email, display_name, legacy) VALUES ('person@example.com', 'Person', 'remove me')",
+        );
 
         $directory = $this->tempDir('migration-creator');
         $creator = new MigrationCreator($directory, new MigrationTemplate());
@@ -144,8 +140,18 @@ final class MigrationCreatorTest extends TestCase
         static::assertNotNull($table);
         static::assertNull($table->getColumn('legacy'));
         static::assertNotNull($table->getColumn('display_name'));
+        static::assertSame(['id'], $table->getPrimaryKey());
+        static::assertTrue($table->getIndex('uniq_user_profile_email')?->unique);
         static::assertNotNull($table->getIndex('idx_user_profile_email_external'));
         static::assertNotNull($table->getIndex('idx_user_profile_email_lower_external'));
+        static::assertSame(
+            "email <> ''",
+            $table->getIndex('idx_user_profile_email_partial_external')?->where,
+        );
+        static::assertSame(
+            ['email' => 'person@example.com'],
+            $pdo->query('SELECT email FROM user_profile')->fetch(PDO::FETCH_ASSOC),
+        );
     }
 
     private function creator(): MigrationCreator
@@ -162,11 +168,6 @@ final class MigrationCreatorTest extends TestCase
             'dir' => TESTS_PATH . '/fixtures/Schema',
             'filter' => static fn(SplFileInfo $file): bool => 'UserProfile.php' === $file->getFilename(),
         ]];
-    }
-
-    private function createSqliteConnection(): PDO
-    {
-        return $this->memoryPdo();
     }
 
     private function createUserProfileTable(PDO $pdo, bool $includeDisplayName = true, bool $includeLegacy = false): void
@@ -197,6 +198,7 @@ final class MigrationCreatorTest extends TestCase
     {
         $pdo->exec('CREATE INDEX idx_user_profile_email_external ON user_profile(email)');
         $pdo->exec('CREATE INDEX idx_user_profile_email_lower_external ON user_profile((lower(email)))');
+        $pdo->exec("CREATE INDEX idx_user_profile_email_partial_external ON user_profile(email) WHERE email <> ''");
     }
 
     private function externalIndexAugmenter(): AutogenSchemaAugmenterInterface

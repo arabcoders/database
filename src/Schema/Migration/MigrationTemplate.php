@@ -59,7 +59,6 @@ final readonly class MigrationTemplate
     {
         return $this->uniqueUses([
             $this->migrationAttributeClass,
-            $this->connectionClass,
             $this->blueprintClass,
             $this->tableBlueprintClass,
             $this->columnTypeClass,

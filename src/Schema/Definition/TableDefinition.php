@@ -40,6 +40,24 @@ final class TableDefinition
         $this->columns[$column->name] = $column;
     }
 
+    public function removeColumn(string $name): void
+    {
+        unset($this->columns[$name]);
+    }
+
+    public function replaceColumn(string $oldName, ColumnDefinition $column): void
+    {
+        if (!array_key_exists($oldName, $this->columns)) {
+            throw new \RuntimeException("Column {$oldName} does not exist on {$this->name}.");
+        }
+
+        $columns = [];
+        foreach ($this->columns as $name => $existing) {
+            $columns[$name === $oldName ? $column->name : $name] = $name === $oldName ? $column : $existing;
+        }
+        $this->columns = $columns;
+    }
+
     public function getColumn(string $name): ?ColumnDefinition
     {
         return $this->columns[$name] ?? null;
@@ -63,6 +81,11 @@ final class TableDefinition
         $this->indexes[$index->name] = $index;
     }
 
+    public function removeIndex(string $name): void
+    {
+        unset($this->indexes[$name]);
+    }
+
     public function getIndex(string $name): ?IndexDefinition
     {
         return $this->indexes[$name] ?? null;
@@ -79,6 +102,11 @@ final class TableDefinition
     public function addForeignKey(ForeignKeyDefinition $foreignKey): void
     {
         $this->foreignKeys[$foreignKey->name] = $foreignKey;
+    }
+
+    public function removeForeignKey(string $name): void
+    {
+        unset($this->foreignKeys[$name]);
     }
 
     public function getForeignKey(string $name): ?ForeignKeyDefinition

@@ -7,6 +7,7 @@ namespace arabcoders\database\Schema\Blueprint;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
+use arabcoders\database\Schema\Migration\SchemaStateApplier;
 use arabcoders\database\Schema\Operation\AddIndexOperation;
 use arabcoders\database\Schema\Operation\CreateTableOperation;
 use arabcoders\database\Schema\Operation\DropTableOperation;
@@ -22,6 +23,10 @@ final class Blueprint
     private array $operations = [];
 
     private ?SchemaMigrationPlan $migrationPlan = null;
+
+    public function __construct(
+        private readonly ?SchemaDefinition $initialState = null,
+    ) {}
 
     /**
      * Execute create table for this blueprint.
@@ -70,6 +75,11 @@ final class Blueprint
         $this->migrationPlan = $plan;
     }
 
+    public function getMigrationPlan(): ?SchemaMigrationPlan
+    {
+        return $this->migrationPlan;
+    }
+
     /**
      * @return array<int,SchemaOperation>
      */
@@ -80,10 +90,25 @@ final class Blueprint
 
     public function toDiff(): SchemaDiff
     {
+        if (null === $this->migrationPlan && null !== $this->initialState) {
+            return new SchemaStateApplier()->diff($this->initialState, $this->operations);
+        }
+
         return new SchemaDiff(
             $this->migrationPlan->from ?? new SchemaDefinition(),
             $this->migrationPlan->to ?? new SchemaDefinition(),
             $this->operations,
         );
+    }
+
+    public function toHistoricalDiff(SchemaDefinition $state): SchemaDiff
+    {
+        $applier = new SchemaStateApplier();
+        $before = null === $this->migrationPlan ? $state : $applier->overlay($state, $this->migrationPlan->from);
+        if ([] === $this->operations && null !== $this->migrationPlan) {
+            return new SchemaDiff($before, $applier->overlay($before, $this->migrationPlan->to), []);
+        }
+
+        return $applier->diff($before, $this->operations);
     }
 }

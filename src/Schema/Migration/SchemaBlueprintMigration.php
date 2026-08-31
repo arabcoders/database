@@ -9,5 +9,13 @@ use arabcoders\database\Schema\Blueprint\Blueprint;
 
 abstract class SchemaBlueprintMigration
 {
-    abstract public function __invoke(Connection $runner, Blueprint $blueprint): void;
+    public function __invoke(Connection $runner, Blueprint $blueprint): void
+    {
+        $this->change($blueprint);
+    }
+
+    public function change(Blueprint $blueprint): void
+    {
+        throw new \LogicException(sprintf('%s must implement change() or override __invoke().', static::class));
+    }
 }
