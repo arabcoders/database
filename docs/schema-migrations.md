@@ -1,6 +1,6 @@
 # Schema and Migrations
 
-The schema tooling is built around declarative model attributes and explicit diff operations. It gives you a predictable way to describe tables in PHP, compare them with a live database, and render the SQL needed to move between the two states.
+The schema tooling uses declarative model attributes and explicit diff operations. Describe tables in PHP, compare them with a live database, and render SQL to move between the two states.
 
 ## Main Components
 
@@ -55,7 +55,7 @@ $sql = SchemaGenerator::generateSchemas([
 
 ## Diff Workflow
 
-A typical workflow looks like this:
+The workflow is:
 
 1. Build the model schema with `SchemaRegistry`.
 2. Introspect the live schema with `SchemaIntrospector`.
@@ -69,7 +69,7 @@ A typical workflow looks like this:
 
 SQLite has limited `ALTER TABLE` support. When a change cannot be expressed safely with native alter operations, the renderer switches to a table rebuild strategy through `RebuildTableOperation`.
 
-That rebuild process:
+The rebuild process:
 
 - Renames the old table.
 - Creates the new table.
@@ -137,7 +137,7 @@ The runner:
 
 ## `migration_version` Table
 
-The runner creates `migration_version` with a checksum column from the beginning. There is no backward-compatibility patch path for older versions of that table inside the runner.
+The runner creates `migration_version` with a checksum column. It does not alter an existing version table to add missing columns.
 
 ## Command Services
 
@@ -188,6 +188,6 @@ Runner-specific exceptions under `Schema/Migration` include:
 - `MigrationChecksumMismatchException`
 - `MigrationStateException`
 
-Low-level PDO failures from schema introspection or migration metadata operations throw `arabcoders\database\DatabaseException`
+Low-level PDO failures from schema introspection or migration metadata operations throw `arabcoders\database\DatabaseException`.
 
 Catch these in your CLI or deployment tooling when you want clearer error handling.

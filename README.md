@@ -1,6 +1,6 @@
 # Database Package
 
-`arabcoders/database` is a standalone PHP database package for applications that want predictable PDO access, explicit SQL generation, and optional ORM, schema, and seeding tools.
+`arabcoders/database` is a standalone PHP database package for applications that need PDO access, explicit SQL generation, and optional ORM, schema, and seeding tools.
 
 You can use the whole package or adopt only the parts you need:
 
@@ -31,7 +31,7 @@ You can use the whole package or adopt only the parts you need:
 
 ## Requirements
 
-- PHP 8.4+.
+- PHP 8.5+.
 - A PDO driver for `mysql`, `pgsql`, or `sqlite`.
 
 ## Quick Start

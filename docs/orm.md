@@ -4,7 +4,7 @@ The ORM maps attribute-defined entities to explicit repository operations. Entit
 
 ## Creating an OrmManager
 
-Use `ConnectionManager` when your application works with named connections. If you only need one connection, `OrmManager::fromConnection()` is a convenient shortcut.
+Use `ConnectionManager` when your application works with named connections. For one connection, use `OrmManager::fromConnection()`.
 
 ```php
 <?php
@@ -103,7 +103,7 @@ Common write methods include:
 
 ## Identity Map and Repository Cache
 
-Each repository instance maintains its own identity map. `OrmManager` also caches repository instances per entity class and connection scope, so repeated `repository()` calls usually return the same repository object. Call `OrmManager::clear()` when you want to discard cached repositories and start with fresh tracked state.
+Each repository instance maintains its own identity map. `OrmManager` caches repository instances per entity class and connection scope, so repeated `repository()` calls return the same repository object. Call `OrmManager::clear()` to discard cached repositories and start with fresh tracked state.
 
 ## Soft Delete
 
@@ -193,7 +193,7 @@ final class UserEntity extends BaseModel
 }
 ```
 
-- `preserveDirtyOnHydrate()` returns `false` by default, so existing models keep their current behavior.
+- `preserveDirtyOnHydrate()` returns `false` by default, allowing hydration to overwrite dirty mapped fields.
 - When you return `true`, dirty mapped fields stay untouched, clean mapped fields refresh from the database, and only the refreshed fields are marked clean.
 - If you do not extend `BaseModel`, you can implement `arabcoders\database\Model\PreservesDirtyStateOnHydrate` directly.
 

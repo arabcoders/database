@@ -1,6 +1,6 @@
 # Seeding
 
-Seeders are classes discovered through attributes. They are useful for baseline data, local fixtures, demo content, and any other setup you want to run in a repeatable way.
+Seeders are classes discovered through attributes. Use them for baseline data, local fixtures, demo content, and repeatable setup tasks.
 
 ## Key Classes
 
@@ -58,11 +58,11 @@ The seeder attribute supports these fields:
 
 `SeederRegistry` scans the configured directories, discovers seeder classes by attribute, and validates that each seeder name is unique and each class extends `SeederRunner`.
 
-`SeederDependencyResolver` adds required dependencies, sorts seeders into a safe execution order, and detects cycles.
+`SeederDependencyResolver` adds required dependencies, sorts seeders by dependency order, and detects cycles.
 
 ## Running Seeders With SeederService
 
-`SeederService` is the main entry point when you want to run seeders from application code or a console command.
+`SeederService` runs seeders from application code or a console command.
 
 ```php
 <?php
@@ -135,4 +135,4 @@ After filtering, the service adds any required dependencies and then builds the 
 
 When `dryRun` is `true`, the service returns the seeding plan without running anything.
 
-This is useful when you want to preview a deployment, release, or local setup run before it changes data.
+Use dry runs to preview a deployment, release, or local setup run before it changes data.

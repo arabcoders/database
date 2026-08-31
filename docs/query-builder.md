@@ -1,6 +1,6 @@
 # Query Builder
 
-Use the query builder when you want explicit SQL generation without assembling query strings by hand. Query objects describe the statement you want, and the connection layer compiles them into SQL plus a bound parameter map.
+The query builder generates SQL without requiring query strings to be assembled by hand. Query objects describe a statement, and the connection layer compiles them into SQL plus a bound parameter map.
 
 All query objects implement `arabcoders\database\Query\QueryInterface`. Execute them through `Connection`, which handles prepared statements and parameter binding.
 
@@ -49,7 +49,7 @@ $rows = $db->fetchAll($query);
 - `where`, `groupBy`, `having`, `orderBy`, and `limit` clauses.
 - Lock clauses such as `forUpdate()` and `lockInShareMode()`.
 
-A few database-specific rules apply:
+Database-specific rules include:
 
 - `INTERSECT` and `EXCEPT` are rejected for MySQL.
 - Lock clauses are dialect-specific: `FOR UPDATE` works on MySQL and PostgreSQL, while `LOCK IN SHARE MODE` is MySQL-only.
@@ -122,7 +122,7 @@ Join behavior differs by database:
 
 `RawExpression` can be used in insert and update payloads, and `Identifier` safely quotes identifiers, including dotted names and aliases.
 
-Use raw SQL intentionally and keep user-provided values parameterized whenever possible.
+Use raw SQL only for expressions that the query API does not represent, and keep user-provided values parameterized.
 
 ## Query Macros
 
@@ -160,7 +160,7 @@ When you configure a cache backend with `Connection::setCache()`, the connection
 - `cursor($query)`
 - `chunked($query, $size)`
 
-If you prefer explicit cache keys, use:
+For explicit cache keys, use:
 
 - `fetchAllCached($query, $key, $ttl)`
 - `fetchOneCached($query, $key, $ttl)`

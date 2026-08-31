@@ -30,7 +30,7 @@ Select the dialect for a PDO connection with:
 $dialect = arabcoders\database\Dialect\DialectFactory::fromPdo($pdo);
 ```
 
-A few driver differences matter in practice:
+Driver differences include:
 
 - MySQL `RETURNING` support depends on server version and does not apply to MariaDB.
 - PostgreSQL and SQLite both support `RETURNING` and `DO NOTHING` upsert mode.
@@ -96,4 +96,4 @@ Each built-in schema dialect keeps driver-specific behavior explicit:
 - PostgreSQL supports expression indexes, partial indexes, and dialect-specific index methods.
 - MySQL handles full-text, spatial, and index algorithm variants with driver-specific syntax.
 
-Keep those differences explicit in any custom dialect as well, so behavior stays predictable.
+Document those differences in custom dialects as well, and keep their capability flags aligned with the SQL they generate.
