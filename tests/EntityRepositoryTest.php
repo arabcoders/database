@@ -1183,6 +1183,128 @@ final class EntityRepositoryTest extends TestCase
         static::assertSame([['a@example.com', 'b@example.com'], ['c@example.com']], $chunkedById);
     }
 
+    public function testBulkInsertReleases(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createSchema($pdo, [UserEntity::class]);
+
+        $repo = new EntityRepository(
+            new Connection($pdo, new SqliteDialect()),
+            new EntityMetadataFactory(),
+            UserEntity::class,
+        );
+        $entities = [];
+        $references = [];
+
+        foreach (['a@example.com', 'b@example.com', 'c@example.com'] as $email) {
+            $entity = new UserEntity();
+            $entity->email = $email;
+            $entity->displayName = $email;
+            $entities[] = $entity;
+            $references[] = \WeakReference::create($entity);
+        }
+
+        $repo->insertMany($entities);
+        unset($entities, $entity);
+        gc_collect_cycles();
+
+        foreach ($references as $reference) {
+            static::assertNull($reference->get());
+        }
+    }
+
+    public function testCursorReleasesRelations(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createSchema($pdo, [BlogUserEntity::class, BlogProfileEntity::class]);
+        $pdo->exec("INSERT INTO users (email) VALUES ('a@example.com'), ('b@example.com')");
+        $pdo->exec("INSERT INTO profiles (user_id, display_name) VALUES (1, 'A'), (2, 'B')");
+
+        $repo = new EntityRepository(
+            new Connection($pdo, new SqliteDialect()),
+            new EntityMetadataFactory(),
+            BlogUserEntity::class,
+        );
+        $userReference = null;
+        $profileReference = null;
+
+        foreach ($repo->cursor($repo->select()->orderBy('id', 'ASC'), ['profile']) as $user) {
+            gc_collect_cycles();
+            static::assertNull($userReference?->get());
+            static::assertNull($profileReference?->get());
+            $userReference = \WeakReference::create($user);
+            $profileReference = \WeakReference::create($user->profile);
+        }
+
+        unset($user);
+        gc_collect_cycles();
+        static::assertNull($userReference?->get());
+        static::assertNull($profileReference?->get());
+    }
+
+    public function testKeysetCursorsRelease(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createSchema($pdo, [UserEntity::class]);
+        $pdo->exec(
+            "INSERT INTO users (email, display_name) VALUES
+                ('a@example.com', 'A'), ('b@example.com', 'B'), ('c@example.com', 'C')",
+        );
+
+        $repo = new EntityRepository(
+            new Connection($pdo, new SqliteDialect()),
+            new EntityMetadataFactory(),
+            UserEntity::class,
+        );
+        $reference = null;
+
+        foreach ($repo->cursorById(batchSize: 1) as $user) {
+            gc_collect_cycles();
+            static::assertNull($reference?->get());
+            $reference = \WeakReference::create($user);
+        }
+
+        unset($user);
+        gc_collect_cycles();
+        static::assertNull($reference?->get());
+
+        $reference = null;
+        foreach ($repo->chunkedById(size: 1) as $chunk) {
+            gc_collect_cycles();
+            static::assertNull($reference?->get());
+            $reference = \WeakReference::create($chunk[0]);
+        }
+
+        unset($chunk);
+        gc_collect_cycles();
+        static::assertNull($reference?->get());
+    }
+
+    public function testClearsIdentityMap(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createSchema($pdo, [UserEntity::class]);
+
+        $repo = new EntityRepository(
+            new Connection($pdo, new SqliteDialect()),
+            new EntityMetadataFactory(),
+            UserEntity::class,
+        );
+        $entity = new UserEntity();
+        $entity->email = 'tracked@example.com';
+        $entity->displayName = 'Tracked';
+        $repo->insert($entity);
+
+        $reference = \WeakReference::create($entity);
+        unset($entity);
+        gc_collect_cycles();
+        static::assertNotNull($reference->get());
+
+        $repo->clearIdentityMap();
+        gc_collect_cycles();
+        static::assertNull($reference->get());
+    }
+
     public function testSoftDeleteFilters(): void
     {
         $pdo = $this->memoryPdo();

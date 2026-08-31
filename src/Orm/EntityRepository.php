@@ -213,8 +213,21 @@ final class EntityRepository
      */
     public function fetchAll(SelectQuery $query, array $relations = []): array
     {
-        $entities = $this->hydrateRows($this->connection->fetchAll($query));
-        $this->loadRelationsFor($entities, $relations);
+        return $this->fetchAllEntities($query, $relations, true);
+    }
+
+    public function clearIdentityMap(): void
+    {
+        $this->identityMap = [];
+    }
+
+    /**
+     * @return array<int,TEntity>
+     */
+    private function fetchAllEntities(SelectQuery $query, array $relations, bool $useIdentityMap): array
+    {
+        $entities = $this->hydrateRows($this->connection->fetchAll($query), $useIdentityMap);
+        $this->loadRelationsFor($entities, $relations, $useIdentityMap);
 
         return $entities;
     }
@@ -227,8 +240,8 @@ final class EntityRepository
     public function cursor(SelectQuery $query, array $relations = []): \Generator
     {
         foreach ($this->connection->cursor($query) as $row) {
-            $entity = $this->hydrateRow($row);
-            $this->loadRelationsFor([$entity], $relations);
+            $entity = $this->hydrateRow($row, false);
+            $this->loadRelationsFor([$entity], $relations, false);
             yield $entity;
         }
     }
@@ -253,7 +266,7 @@ final class EntityRepository
             }
 
             if (!empty($relations)) {
-                $this->loadRelationsFor($chunk, $relations);
+                $this->loadRelationsFor($chunk, $relations, false);
             }
 
             yield $chunk;
@@ -262,7 +275,7 @@ final class EntityRepository
 
         if (!empty($chunk)) {
             if (!empty($relations)) {
-                $this->loadRelationsFor($chunk, $relations);
+                $this->loadRelationsFor($chunk, $relations, false);
             }
             yield $chunk;
         }
@@ -278,7 +291,12 @@ final class EntityRepository
         array $relations = [],
         string $column = 'id',
         string $direction = 'ASC',
+        int $batchSize = 1000,
     ): \Generator {
+        if ($batchSize < 1) {
+            throw new RuntimeException('Batch size must be at least 1.');
+        }
+
         $direction = $this->normalizeDirection($direction);
         $columnName = $this->mapSelectableColumn($column);
         $lastId = null;
@@ -295,21 +313,23 @@ final class EntityRepository
             }
 
             $query->orderBy($columnName, $direction);
+            $batchLimit = $batchSize;
             if (null !== $limit) {
                 $remaining = max(0, $limit - $fetched);
                 if (0 === $remaining) {
                     return;
                 }
-                $query->limit($remaining);
+                $batchLimit = min($batchLimit, $remaining);
             }
+            $query->limit($batchLimit);
 
-            $batch = $this->fetchAll($query, []);
+            $batch = $this->fetchAllEntities($query, [], false);
             if (empty($batch)) {
                 return;
             }
 
             if (!empty($relations)) {
-                $this->loadRelationsFor($batch, $relations);
+                $this->loadRelationsFor($batch, $relations, false);
             }
 
             foreach ($batch as $entity) {
@@ -342,7 +362,7 @@ final class EntityRepository
         }
 
         $chunk = [];
-        foreach ($this->cursorById($limit, $relations, $column, $direction) as $entity) {
+        foreach ($this->cursorById($limit, $relations, $column, $direction, $size) as $entity) {
             $chunk[] = $entity;
             if (count($chunk) < $size) {
                 continue;
@@ -598,6 +618,14 @@ final class EntityRepository
      */
     public function insert(object $entity): string
     {
+        return $this->insertEntity($entity, true);
+    }
+
+    /**
+     * @param TEntity $entity
+     */
+    private function insertEntity(object $entity, bool $track): string
+    {
         $this->applyValidators($entity, ValidationType::CREATE);
         $this->dispatchEvent($entity, EntityEvent::PRE_INSERT);
         $this->callHook($entity, 'beforeInsert');
@@ -608,7 +636,9 @@ final class EntityRepository
 
         $id = $this->connection->lastInsertId();
         $this->applyGeneratedId($entity, $id);
-        $this->trackEntity($entity);
+        if ($track) {
+            $this->trackEntity($entity);
+        }
         $this->syncTrackedEntity($entity);
         $this->callHook($entity, 'afterInsert');
         $this->dispatchEvent($entity, EntityEvent::POST_INSERT);
@@ -638,7 +668,7 @@ final class EntityRepository
             $ids = [];
             foreach ($entities as $entity) {
                 $this->assertBulkEntity($entity);
-                $ids[] = $this->insert($entity);
+                $ids[] = $this->insertEntity($entity, false);
             }
 
             return $ids;
@@ -2595,7 +2625,7 @@ final class EntityRepository
      * @param array<int,object> $entities
      * @param array<int,string> $relations
      */
-    private function loadRelationsFor(array $entities, array $relations): void
+    private function loadRelationsFor(array $entities, array $relations, bool $useIdentityMap = true): void
     {
         if (empty($entities) || empty($relations)) {
             return;
@@ -2606,14 +2636,14 @@ final class EntityRepository
             return;
         }
 
-        $this->loadRelationTree($entities, $tree);
+        $this->loadRelationTree($entities, $tree, $useIdentityMap);
     }
 
     /**
      * @param array<int,object> $entities
      * @param array<string,array{options:mixed,children:array}> $tree
      */
-    private function loadRelationTree(array $entities, array $tree): void
+    private function loadRelationTree(array $entities, array $tree, bool $useIdentityMap): void
     {
         foreach ($tree as $relationName => $node) {
             $relation = $this->metadata->relationFor($relationName);
@@ -2624,13 +2654,13 @@ final class EntityRepository
             $options = $node['options'] ?? null;
             $children = $node['children'] ?? [];
 
-            $relatedEntities = $this->loadRelation($entities, $relation, $options);
+            $relatedEntities = $this->loadRelation($entities, $relation, $options, $useIdentityMap);
             if (empty($children) || empty($relatedEntities)) {
                 continue;
             }
 
             $relatedRepo = $this->repositoryFor($relation->target);
-            $relatedRepo->loadRelationTree($relatedEntities, $children);
+            $relatedRepo->loadRelationTree($relatedEntities, $children, $useIdentityMap);
         }
     }
 
@@ -2638,20 +2668,38 @@ final class EntityRepository
      * @param array<int,object> $entities
      * @return array<int,object>
      */
-    private function loadRelation(array $entities, RelationMetadata $relation, mixed $options): array
-    {
+    private function loadRelation(
+        array $entities,
+        RelationMetadata $relation,
+        mixed $options,
+        bool $useIdentityMap,
+    ): array {
         $relatedRepo = $this->repositoryFor($relation->target);
         $relatedMeta = $relatedRepo->metadata;
 
         if (RelationMetadata::TYPE_BELONGS_TO === $relation->type) {
-            return $this->loadBelongsTo($entities, $relation, $relatedRepo, $relatedMeta, $options);
+            return $this->loadBelongsTo(
+                $entities,
+                $relation,
+                $relatedRepo,
+                $relatedMeta,
+                $options,
+                $useIdentityMap,
+            );
         }
 
         if (RelationMetadata::TYPE_BELONGS_TO_MANY === $relation->type) {
             return $this->loadBelongsToMany($entities, $relation, $relatedRepo, $relatedMeta, $options);
         }
 
-        return $this->loadHasRelation($entities, $relation, $relatedRepo, $relatedMeta, $options);
+        return $this->loadHasRelation(
+            $entities,
+            $relation,
+            $relatedRepo,
+            $relatedMeta,
+            $options,
+            $useIdentityMap,
+        );
     }
 
     /**
@@ -2779,6 +2827,7 @@ final class EntityRepository
         EntityRepository $relatedRepo,
         EntityMetadata $relatedMeta,
         mixed $options,
+        bool $useIdentityMap,
     ): array {
         if ($options instanceof RelationOptions && null !== $options->perParentLimit()) {
             throw new RuntimeException('Per-parent limit is not supported for belongs-to relations.');
@@ -2797,7 +2846,7 @@ final class EntityRepository
         $condition = $this->applyRelationOptions($query, $condition, $options);
         $query->where($condition);
 
-        $related = $relatedRepo->fetchAll($query);
+        $related = $relatedRepo->fetchAllEntities($query, [], $useIdentityMap);
         $ownerProperty = $this->resolvePropertyName($relatedMeta, $ownerColumn);
 
         $lookup = [];
@@ -2838,9 +2887,17 @@ final class EntityRepository
         EntityRepository $relatedRepo,
         EntityMetadata $relatedMeta,
         mixed $options,
+        bool $useIdentityMap,
     ): array {
         if ($options instanceof RelationOptions && null !== $options->perParentLimit()) {
-            return $this->loadHasRelationWithLimit($entities, $relation, $relatedRepo, $relatedMeta, $options);
+            return $this->loadHasRelationWithLimit(
+                $entities,
+                $relation,
+                $relatedRepo,
+                $relatedMeta,
+                $options,
+                $useIdentityMap,
+            );
         }
 
         $localProperty = $this->resolvePropertyName($this->metadata, $relation->localKey);
@@ -2856,7 +2913,7 @@ final class EntityRepository
         $condition = $this->applyRelationOptions($query, $condition, $options);
         $query->where($condition);
 
-        $related = $relatedRepo->fetchAll($query);
+        $related = $relatedRepo->fetchAllEntities($query, [], $useIdentityMap);
         $foreignProperty = $this->resolvePropertyName($relatedMeta, $foreignColumn);
 
         $grouped = [];
@@ -2903,6 +2960,7 @@ final class EntityRepository
         EntityRepository $relatedRepo,
         EntityMetadata $relatedMeta,
         RelationOptions $options,
+        bool $useIdentityMap,
     ): array {
         if ($options->hasPagination()) {
             throw new RuntimeException('Per-parent limit cannot be combined with limit/offset.');
@@ -2949,7 +3007,7 @@ final class EntityRepository
         $outer->orderBy($alias . '.' . $foreignColumn, 'ASC');
         $outer->orderBy($alias . '.__rn', 'ASC');
 
-        $related = $relatedRepo->fetchAll($outer);
+        $related = $relatedRepo->fetchAllEntities($outer, [], $useIdentityMap);
         $foreignProperty = $this->resolvePropertyName($relatedMeta, $foreignColumn);
 
         $grouped = [];

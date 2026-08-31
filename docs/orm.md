@@ -103,7 +103,11 @@ Common write methods include:
 
 ## Identity Map and Repository Cache
 
-Each repository instance maintains its own identity map. `OrmManager` caches repository instances per entity class and connection scope, so repeated `repository()` calls return the same repository object. Call `OrmManager::clear()` to discard cached repositories and start with fresh tracked state.
+Each repository instance maintains its own identity map. Full-entity reads and `insert()` track entities, so repeated reads through the same repository return the same object. `insertMany()`, `cursor()`, `chunked()`, `cursorById()`, and `chunkedById()` do not track their results.
+
+Call `clearIdentityMap()` on a repository to release its tracked entities. `OrmManager` caches repository instances per entity class and connection scope; call `OrmManager::clear()` to discard those repositories.
+
+`cursorById()` fetches up to 1,000 rows per query by default. Pass `batchSize` to change that query size. `chunkedById()` uses its `size` as the query batch size.
 
 ## Soft Delete
 
