@@ -1,99 +1,111 @@
-# Dialects and Extensibility
+# Dialects
 
-The package uses two dialect layers so query generation and schema generation can stay explicit across different databases.
+This is an advanced extension reference. Most applications only need built-in driver selection. The package has separate dialect layers for query SQL and schema or migration SQL.
 
-- DML dialects under `arabcoders\database\Dialect\*` generate SQL for the query builder.
-- DDL dialects under `arabcoders\database\Schema\Dialect\*` generate SQL for schema and migration tooling.
+## Select a built-in driver
 
-## Built-In Drivers
-
-Built-in driver support covers:
-
-- `mysql`
-- `pgsql`
-- `sqlite`
-
-## DML Dialects
-
-The DML dialect interface is `arabcoders\database\Dialect\DialectInterface`.
-
-Its responsibilities include:
-
-- Identifier and string quoting.
-- Limit and offset rendering.
-- Feature flags such as `supportsReturning`, `supportsUpsertDoNothing`, `supportsWindowFunctions`, and `supportsFullText`.
-- Inserted-value expressions for upsert updates through `renderUpsertInsertValue`.
-
-Select the dialect for a PDO connection with:
+`DialectFactory::fromPdo(PDO $pdo): DialectInterface` selects the query dialect from the PDO driver. The built-in drivers are `mysql`, `pgsql`, and `sqlite`:
 
 ```php
-$dialect = arabcoders\database\Dialect\DialectFactory::fromPdo($pdo);
+use arabcoders\database\Dialect\DialectFactory;
+
+$dialect = DialectFactory::fromPdo($pdo);
 ```
 
-Driver differences include:
-
-- MySQL `RETURNING` support depends on server version and does not apply to MariaDB.
-- PostgreSQL and SQLite both support `RETURNING` and `DO NOTHING` upsert mode.
-
-## DDL Dialects
-
-The DDL dialect interface is `arabcoders\database\Schema\Dialect\SchemaDialectInterface`.
-
-It is responsible for:
-
-- Create, alter, and drop SQL for tables, columns, indexes, and foreign keys.
-- Rename statements.
-- Capability flags such as `supportsAlterColumn` and `supportsDropColumn`.
-- Type normalization and default algorithm decisions.
-
-Select the schema dialect for a PDO connection with:
+`SchemaDialectFactory::fromPdo(PDO $pdo): SchemaDialectInterface` selects the schema dialect for the same connection:
 
 ```php
-$schemaDialect = arabcoders\database\Schema\Dialect\SchemaDialectFactory::fromPdo($pdo);
+use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
+
+$schemaDialect = SchemaDialectFactory::fromPdo($pdo);
 ```
 
-## Factory and Registration
+Schema code can also select a built-in dialect by driver name:
 
-`SchemaDialectFactory` provides:
+```php
+$schemaDialect = SchemaDialectFactory::fromDriverName('pgsql');
+```
 
-- `fromPdo($pdo)`
-- `fromDriverName('pgsql')`
-- `fromTarget(...)` for a schema dialect instance or class, a database dialect instance or class, or a driver string
-- `register($driver, $schemaDialectClass)` for custom drivers
+`SchemaDialectFactory::fromTarget()` accepts a schema dialect instance, a database dialect instance, a supported class string, or a driver string. Unsupported drivers throw `RuntimeException`.
 
-## Extending With a Custom DML Dialect
+## DML dialect internals
 
-To add a custom DML dialect:
+`arabcoders\database\Dialect\DialectInterface` defines the query-builder contract:
 
-1. Implement `DialectInterface`.
-2. Make sure `name()` matches your driver key.
-3. Add factory wiring around `DialectFactory`, or use your own factory wrapper.
+```php
+interface DialectInterface
+{
+    public function name(): string;
+    public function quoteIdentifier(string $identifier): string;
+    public function quoteString(string $value): string;
+    public function renderLimit(?int $limit, ?int $offset = null): string;
+    public function supportsReturning(): bool;
+    public function supportsUpsertDoNothing(): bool;
+    public function supportsWindowFunctions(): bool;
+    public function supportsFullText(): bool;
+    public function renderUpsertInsertValue(string $column): string;
+}
+```
 
-## Extending With a Custom DDL Dialect
+The feature methods gate SQL for `RETURNING`, upsert `DO NOTHING`, window functions, and full text. Query objects also reject unsupported locks, set operations, joined updates and deletes, and unsupported upsert forms. Keep each capability aligned with the SQL emitted by a custom dialect.
 
-To add a custom DDL dialect:
+The built-in behavior is driver-specific. MySQL `RETURNING` depends on the server version and doesn't apply to MariaDB. PostgreSQL and SQLite support `RETURNING` and upsert `DO NOTHING`.
 
-1. Implement `SchemaDialectInterface`, or extend `AbstractSchemaDialect`.
-2. Register it with `SchemaDialectFactory::register($driver, YourSchemaDialect::class)`.
-3. Ensure it supports the renderer operations used by `SchemaSqlRenderer`.
+## DDL dialect internals
 
-## Query-Level Feature Gates
+`arabcoders\database\Schema\Dialect\SchemaDialectInterface` supplies schema and migration SQL. Its methods cover table, column, index, foreign-key, rename, and primary-key operations, plus defaults and capabilities:
 
-Query objects enforce feature availability at compile time. For example, the package rejects:
+```php
+use arabcoders\database\Schema\Definition\ColumnDefinition;
+use arabcoders\database\Schema\Definition\ColumnType;
+use arabcoders\database\Schema\Definition\ForeignKeyDefinition;
+use arabcoders\database\Schema\Definition\IndexDefinition;
+use arabcoders\database\Schema\Definition\TableDefinition;
 
-- Unsupported lock clauses.
-- Unsupported set operations.
-- Unsupported `RETURNING` or upsert forms.
-- Unsupported joined updates and deletes.
+interface SchemaDialectInterface
+{
+    public function name(): string;
+    public function quoteIdentifier(string $identifier): string;
+    public function createTableSql(TableDefinition $table): string;
+    public function dropTableSql(string $table): string;
+    public function addColumnSql(string $table, ColumnDefinition $column): string;
+    public function alterColumnSql(string $table, ColumnDefinition $column): string;
+    public function dropColumnSql(string $table, string $column): string;
+    public function addIndexSql(string $table, IndexDefinition $index): string|array;
+    public function dropIndexSql(string $table, IndexDefinition $index): string|array;
+    public function addForeignKeySql(string $table, ForeignKeyDefinition $foreignKey): string;
+    public function dropForeignKeySql(string $table, ForeignKeyDefinition $foreignKey): string;
+    public function renameTableSql(string $from, string $to): string;
+    public function renameColumnSql(string $table, string $from, string $to): string;
+    public function addPrimaryKeySql(string $table, array $columns): string;
+    public function dropPrimaryKeySql(string $table): string;
+    public function defaultTableEngine(): ?string;
+    public function defaultTableCharset(): ?string;
+    public function defaultTableCollation(): ?string;
+    public function defaultIndexAlgorithm(IndexDefinition $index): ?string;
+    public function normalizeColumnType(ColumnType $type): ColumnType;
+    public function supportsAlterColumn(): bool;
+    public function supportsDropColumn(): bool;
+    public function supportsForeignKeys(): bool;
+    public function supportsPrimaryKeyAlter(): bool;
+}
+```
 
-When you add a custom dialect, keep these feature flags accurate so unsupported SQL is rejected early.
+The `TableDefinition`, `ColumnDefinition`, `IndexDefinition`, `ForeignKeyDefinition`, and `ColumnType` names in this signature are the classes imported by the production interface. `AbstractSchemaDialect` provides the shared constructor `__construct(DatabaseDialectInterface $dialect)`, identifier and literal quoting, default handling, and type normalization.
 
-## Schema-Level Driver Nuances
+## Register a custom schema dialect
 
-Each built-in schema dialect keeps driver-specific behavior explicit:
+Implement `SchemaDialectInterface` or extend `AbstractSchemaDialect`, then register the class under a driver key:
 
-- SQLite uses rebuild strategies for alter and drop operations it cannot express directly.
-- PostgreSQL supports expression indexes, partial indexes, and dialect-specific index methods.
-- MySQL handles full-text, spatial, and index algorithm variants with driver-specific syntax.
+```php
+use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
 
-Document those differences in custom dialects as well, and keep their capability flags aligned with the SQL they generate.
+SchemaDialectFactory::register('custom', CustomSchemaDialect::class);
+$dialect = SchemaDialectFactory::fromDriverName('custom');
+```
+
+The custom class must implement `SchemaDialectInterface`. Its constructor must be compatible with the factory path used by the application. `SchemaDialectFactory::register()` changes the process-local registry; it doesn't add query-dialect support to `DialectFactory`. For a custom DML dialect, implement `DialectInterface` and provide application factory wiring because `DialectFactory` has no registration method.
+
+## Built-in schema differences
+
+SQLite uses rebuild operations when an alteration cannot be expressed by native `ALTER TABLE`. PostgreSQL supports expression indexes, partial indexes, and dialect-specific index methods. MySQL handles full-text, spatial, and index algorithm variants with driver-specific SQL. Custom capability flags must match the operations and SQL the dialect supports.

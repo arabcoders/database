@@ -1,18 +1,8 @@
 # Seeding
 
-Seeders are classes discovered through attributes. Use them for baseline data, local fixtures, demo content, and repeatable setup tasks.
+Define a `SeederRunner`, place it in the configured seeder directory, and run it through `SeederService`. Seeders handle baseline data, fixtures, demo content, and repeatable setup tasks.
 
-## Key Classes
-
-The seeding system is built around these types:
-
-- `arabcoders\database\Attributes\Seeder`
-- `arabcoders\database\Seeder\SeederRunner`
-- `arabcoders\database\Seeder\SeederRegistry`
-- `arabcoders\database\Seeder\SeederExecutor`
-- `arabcoders\database\Commands\SeederService`
-
-## Defining a Seeder
+## Define a seeder
 
 ```php
 <?php
@@ -24,12 +14,7 @@ use arabcoders\database\Connection;
 use arabcoders\database\Query\InsertQuery;
 use arabcoders\database\Seeder\SeederRunner;
 
-#[Seeder(
-    name: 'base_users',
-    dependsOn: [],
-    tags: ['base'],
-    groups: ['dev'],
-)]
+#[Seeder(name: 'base_users', dependsOn: [], tags: ['base'], groups: ['dev'], mode: 'once')]
 final class BaseUsersSeeder extends SeederRunner
 {
     public function __invoke(Connection $connection): void
@@ -44,95 +29,51 @@ final class BaseUsersSeeder extends SeederRunner
 }
 ```
 
-## Seeder Attribute Fields
+`SeederRunner` requires `__invoke(Connection $connection): void`. The `Seeder` attribute fields are `name`, `dependsOn`, `tags`, `groups`, and `mode`. Seeder names must be unique.
 
-The seeder attribute supports these fields:
+## Configure and run
 
-- `name` for the unique logical seeder identifier.
-- `dependsOn` for seeder names that must run first.
-- `tags` for optional labels.
-- `groups` for optional grouping labels.
-- `mode` for the default run mode (`always`, `once`, or `rebuild`).
-
-## Registry and Dependency Resolution
-
-`SeederRegistry` scans the configured directories, discovers seeder classes by attribute, and validates that each seeder name is unique and each class extends `SeederRunner`.
-
-`SeederDependencyResolver` adds required dependencies, sorts seeders by dependency order, and detects cycles.
-
-## Running Seeders With SeederService
-
-`SeederService` runs seeders from application code or a console command.
+`SeederService` accepts a PDO connection, seeder directory, and optional PSR container. `run()` accepts a `SeederRequest|string`, a dry-run default for the string form, and an optional callback:
 
 ```php
-<?php
-
-declare(strict_types=1);
-
 use arabcoders\database\Commands\SeederRequest;
 use arabcoders\database\Commands\SeederService;
 use arabcoders\database\Seeder\SeederRunMode;
 use arabcoders\database\Seeder\SeederTransactionMode;
 
-$service = new SeederService($pdo, __DIR__ . '/seeders');
+$service = new SeederService($pdo, __DIR__ . '/seeders', $container);
 
+$preview = $service->run(new SeederRequest());
 $result = $service->run(new SeederRequest(
-    classFilter: '',
     dryRun: false,
     mode: SeederRunMode::AUTO,
     transactionMode: SeederTransactionMode::PER_SEEDER,
-    tag: 'base',
-    group: 'dev',
 ));
 ```
 
-`SeederResult` includes:
+`SeederRequest` defaults to an empty `classFilter`, `dryRun: true`, `mode: auto`, and `transactionMode: per-seeder`. Therefore the default request previews the selected run. Set `dryRun: false` for execution. `SeederResult` contains selected definitions, the dry-run flag, and execution entries with status, reason, and history ID.
 
-- The selected seeder definitions.
-- The dry-run flag.
-- Execution entries with status, reason, and history id.
+`SeederService::list(): array` returns the discovered `SeederDefinition` values without running them.
 
-## Run Modes
+## Filtering and dry runs
 
-`SeederRunMode` supports:
+`classFilter` is a case-insensitive prefix filter on the seeder name. It must identify one name or the service throws for no match or multiple matches. `tag` and `group` filter the discovered roots. After filtering, required dependencies are added to the execution plan.
 
-- `auto`, which uses each seeder's declared mode.
-- `once`, which skips seeders that already ran successfully.
-- `always`, which always executes the selected seeders.
-- `rebuild`, which removes previous history for that seeder before running it again.
+Set `dryRun: true` to return pending and skipped entries without creating the history table or executing seeders. This makes the returned plan suitable for review before data changes.
 
-## Transaction Modes
+## Run modes and transactions
 
-`SeederTransactionMode` supports:
+`SeederRunMode` defines `auto`, `once`, `always`, and `rebuild`:
 
-- `none`, which runs without transaction wrapping.
-- `per-seeder`, which wraps each seeder in its own transaction.
-- `per-run`, which wraps the full seeding run in one transaction.
+- `auto` uses the mode declared by each seeder.
+- `once` skips a seeder with a successful history row.
+- `always` executes selected seeders regardless of prior successful runs.
+- `rebuild` removes that seeder's previous history before running it again.
 
-## Execution History
+`SeederTransactionMode` defines `none`, `per-seeder`, and `per-run`. The default is `per-seeder`. `per-run` wraps the run in one transaction. `none` does not add transaction wrapping.
 
-`SeederExecutionHistory` stores status rows in `seeder_version`.
+## History and dependencies
 
-It:
+`SeederRegistry` scans configured directories, validates the attribute name, checks that classes extend `SeederRunner`, normalizes lists, and sorts definitions by name. `SeederDependencyResolver` adds `dependsOn` entries, orders the result, and detects dependency cycles.
 
-- Creates the table and index automatically.
-- Tracks both `executed` and `failed` runs.
-- Powers `once` checks and `rebuild` behavior.
-
-Low-level database failures during seeding throw `arabcoders\database\DatabaseException`.
-
-## Filtering and Selection
-
-`SeederService` supports:
-
-- Class or name prefix filtering through `classFilter`.
-- Tag filtering through `tag`.
-- Group filtering through `group`.
-
-After filtering, the service adds any required dependencies and then builds the final execution order.
-
-## Dry Run
-
-When `dryRun` is `true`, the service returns the seeding plan without running anything.
-
-Use dry runs to preview a deployment, release, or local setup run before it changes data.
+`SeederExecutionHistory` stores execution rows in `seeder_version`, creates the table and index when execution begins, tracks `executed` and `failed` statuses, and supplies the successful-run check used by `once`. A failure during a per-run transaction is recorded after rollback. Database failures throw `arabcoders\database\DatabaseException`.

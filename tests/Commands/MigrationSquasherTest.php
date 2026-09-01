@@ -10,6 +10,7 @@ use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Definition\TableDefinition;
+use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use arabcoders\database\Schema\Migration\SchemaDefinitionSerializer;
 use arabcoders\database\Schema\Migration\SchemaOperationSerializer;
@@ -144,11 +145,12 @@ final class MigrationSquasherTest extends DatabaseTestCase
         require_once $f2;
         require_once $f3;
 
-        $squasher = new MigrationSquasher($tmp);
+        $squasher = new MigrationSquasher($tmp, new MigrationTemplate(namespace: 'Application\\Migration'));
         $report = $squasher->squash('0001', false);
 
         static::assertSame('0001', $report['start']);
         static::assertSame('0003', $report['end']);
+        static::assertSame('Application\\Migration', $this->migrationNamespace($report['newContents']));
 
         $class = $this->evaluateMigration($report['newContents'], 'Migration_0003');
         $attribute = new \ReflectionClass($class)->getAttributes(MigrationAttribute::class)[0]->newInstance();
@@ -190,7 +192,7 @@ final class MigrationSquasherTest extends DatabaseTestCase
         require_once $f2;
         require_once $f3;
 
-        $squasher = new MigrationSquasher($tmp);
+        $squasher = new MigrationSquasher($tmp, new MigrationTemplate());
         $report = $squasher->squash('1001', true);
 
         static::assertFileDoesNotExist($tmp . DIRECTORY_SEPARATOR . 'Migration_1001.php');
@@ -251,7 +253,7 @@ final class MigrationSquasherTest extends DatabaseTestCase
         require_once $f1;
         require_once $f2;
 
-        $squasher = new MigrationSquasher($tmp);
+        $squasher = new MigrationSquasher($tmp, new MigrationTemplate());
         $report = $squasher->squash('2001', false);
 
         $class = $this->evaluateMigration($report['newContents'], 'Migration_2002');
@@ -284,7 +286,7 @@ final class MigrationSquasherTest extends DatabaseTestCase
         require_once $f1;
         require_once $f2;
 
-        $report = new MigrationSquasher($tmp)->squash('3002');
+        $report = new MigrationSquasher($tmp, new MigrationTemplate())->squash('3002');
         $class = $this->evaluateMigration($report['newContents'], 'Migration_3003');
         $attribute = new \ReflectionClass($class)->getAttributes(MigrationAttribute::class)[0]->newInstance();
 
@@ -304,5 +306,26 @@ final class MigrationSquasherTest extends DatabaseTestCase
         eval(substr($code, 5));
 
         return $namespace . '\\' . $className;
+    }
+
+    private function migrationNamespace(string $contents): string
+    {
+        $namespace = '';
+        $reading = false;
+        foreach (token_get_all($contents) as $token) {
+            if (is_array($token) && T_NAMESPACE === $token[0]) {
+                $reading = true;
+                continue;
+            }
+            if ($reading && is_array($token) && in_array($token[0], [T_STRING, T_NAME_QUALIFIED, T_NS_SEPARATOR], true)) {
+                $namespace .= $token[1];
+                continue;
+            }
+            if ($reading && ';' === $token) {
+                return $namespace;
+            }
+        }
+
+        return $namespace;
     }
 }

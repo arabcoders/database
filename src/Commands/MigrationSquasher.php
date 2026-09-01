@@ -9,6 +9,7 @@ use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Migration\MigrationRegistry;
 use arabcoders\database\Schema\Migration\MigrationReplay;
+use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigration;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
@@ -18,6 +19,7 @@ final readonly class MigrationSquasher
 {
     public function __construct(
         private string $migrationDirectory,
+        private MigrationTemplate $template,
     ) {}
 
     /**
@@ -99,6 +101,7 @@ final readonly class MigrationSquasher
             $shortLatestClass,
             $latest->id,
             $latest->name,
+            template: $this->template,
             squashedFrom: '' !== $first->squashedFrom ? $first->squashedFrom : $first->id,
             squashedChecksum: $latestChecksum,
         );
