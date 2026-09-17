@@ -11,6 +11,8 @@ use arabcoders\database\Commands\MigrationPreview;
 use arabcoders\database\Schema\AutogenSchemaAugmenterInterface;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
+use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
+use arabcoders\database\Schema\Migration\MigrationRegistry;
 use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use arabcoders\database\Schema\SchemaIntrospector;
@@ -152,6 +154,32 @@ final class MigrationCreatorTest extends TestCase
             ['email' => 'person@example.com'],
             $pdo->query('SELECT email FROM user_profile')->fetch(PDO::FETCH_ASSOC),
         );
+    }
+
+    public function testAutogenExistingTable(): void
+    {
+        $pdo = $this->memoryPdo();
+        $this->createUserProfileTable($pdo, includeDisplayName: false);
+        $this->createUserProfileModelIndexes($pdo);
+
+        $directory = $this->tempDir('migration-existing-table');
+        $creator = new MigrationCreator($directory, new MigrationTemplate());
+        $draft = $creator->createAutogen(
+            'add display name',
+            $pdo,
+            $this->userProfileModelPaths(),
+            idGenerator: static fn(): string => '240101000004',
+        );
+
+        static::assertInstanceOf(MigrationDraft::class, $draft);
+        $creator->persist($draft);
+        require_once $draft->filePath;
+
+        $runner = new BlueprintMigrationRunner($pdo, new MigrationRegistry([$directory]));
+        $runner->migrate('up');
+
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertNotNull($schema->getTable('user_profile')?->getColumn('display_name'));
     }
 
     private function creator(): MigrationCreator

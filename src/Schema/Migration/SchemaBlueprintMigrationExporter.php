@@ -61,7 +61,7 @@ final class SchemaBlueprintMigrationExporter
         $upOperations = $plan->operations;
         $template = $this->resolveTemplate($template);
         $this->applyTemplateAliases($template);
-        $upBody = $this->renderPlanBody($upOperations, 2);
+        $upBody = $this->renderPlanBody($plan, $upOperations, 2);
 
         return $this->renderer->renderAutogen(
             className: $className,
@@ -77,9 +77,16 @@ final class SchemaBlueprintMigrationExporter
     /**
      * @param array<int,SchemaOperation> $operations
      */
-    private function renderPlanBody(array $operations, int $indentLevel): string
+    private function renderPlanBody(SchemaMigrationPlan $plan, array $operations, int $indentLevel): string
     {
-        return $this->renderOperations($operations, $indentLevel);
+        $payload = $this->exportValue($plan->toArray());
+        $line =
+            $this->indent($indentLevel)
+            . '$blueprint->useMigrationPlan(\arabcoders\database\Schema\Migration\SchemaMigrationPlan::fromArray('
+            . $payload
+            . '));';
+
+        return "\n" . $line . $this->renderOperations($operations, $indentLevel);
     }
 
     private function prunePlan(SchemaMigrationPlan $plan): SchemaMigrationPlan

@@ -104,7 +104,7 @@ $creator->persist($draft);
 
 `MigrationTemplate` configures the namespace and class imports used by every file the creator generates. Applications that replace migration base classes or schema types can set those constructor fields once. Reuse the configured template when constructing other migration-file builders.
 
-`createAutogen()` compares model attributes with the live PDO schema. It accepts the migration name, PDO, model paths, ignored tables, orphan-drop setting, dry-run flag, and optional ID generator. `createAutogenWithOptions()` also accepts `MigrationAutogenOptions`, which carries introspection options, orphan handling, dry-run output, and schema augmenters. A dry run returns `MigrationPreview`; otherwise the method returns `MigrationDraft` for `persist()`.
+`createAutogen()` compares model attributes with the live PDO schema. It accepts the migration name, PDO, model paths, ignored tables, orphan-drop setting, dry-run flag, and optional ID generator. `createAutogenWithOptions()` also accepts `MigrationAutogenOptions`, which carries introspection options, orphan handling, dry-run output, and schema augmenters. A dry run returns `MigrationPreview`; otherwise the method returns `MigrationDraft` for `persist()`. Generated migrations include the relevant before-and-after table definitions so historical replay can resolve changes to tables that predate the recorded migration history.
 
 ## Preview, run, and rollback
 
