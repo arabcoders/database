@@ -9,6 +9,7 @@ use arabcoders\database\Commands\MigrationCreator;
 use arabcoders\database\Commands\MigrationDraft;
 use arabcoders\database\Commands\MigrationPreview;
 use arabcoders\database\Schema\AutogenSchemaAugmenterInterface;
+use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectInterface;
 use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
@@ -180,6 +181,49 @@ final class MigrationCreatorTest extends TestCase
 
         $schema = new SchemaIntrospector($pdo)->introspect();
         static::assertNotNull($schema->getTable('user_profile')?->getColumn('display_name'));
+
+        $runner->migrate('down');
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertSame(['id', 'email'], array_keys($schema->getTable('user_profile')->getColumns()));
+    }
+
+    public function testAutogenRecordedTable(): void
+    {
+        $pdo = $this->memoryPdo();
+        $directory = $this->tempDir('migration-recorded-table');
+        copy(
+            TESTS_PATH . '/fixtures/Schema/RecordedProfileMigration/CreateProfileMigration.php',
+            $directory . '/CreateProfileMigration.php',
+        );
+        $runner = new BlueprintMigrationRunner($pdo, new MigrationRegistry([$directory]));
+        $runner->migrate('up');
+
+        $creator = new MigrationCreator($directory, new MigrationTemplate());
+        $draft = $creator->createAutogen(
+            'add display name',
+            $pdo,
+            $this->userProfileModelPaths(),
+            idGenerator: static fn(): string => '240101000005',
+        );
+        static::assertInstanceOf(MigrationDraft::class, $draft);
+        $creator->persist($draft);
+        require_once $draft->filePath;
+
+        $class = 'Migration\\' . $draft->className;
+        $blueprint = new Blueprint();
+        new $class()->change($blueprint);
+        static::assertNull($blueprint->getMigrationPlan());
+        static::assertCount(1, $blueprint->getOperations());
+
+        $runner->migrate('up');
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertSame(['id', 'email', 'display_name'], array_keys($schema->getTable('user_profile')->getColumns()));
+        $pdo->exec("INSERT INTO user_profile (email, display_name) VALUES ('person@example.com', 'Person')");
+
+        $runner->migrate('down');
+        $schema = new SchemaIntrospector($pdo)->introspect();
+        static::assertSame(['id', 'email'], array_keys($schema->getTable('user_profile')->getColumns()));
+        static::assertSame(['person@example.com'], $pdo->query('SELECT email FROM user_profile')->fetchAll(PDO::FETCH_COLUMN));
     }
 
     private function creator(): MigrationCreator

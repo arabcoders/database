@@ -1,10 +1,10 @@
 # Query Builder
 
-The query builder describes SQL statements as PHP objects. `Connection` compiles each object, prepares the SQL, and binds its parameters.
+Build queries with PHP objects and execute them through `Connection`.
 
 ## Connect
 
-Create a PDO connection and select its dialect before building queries:
+Create a PDO connection and select its dialect:
 
 ```php
 <?php
@@ -14,11 +14,11 @@ declare(strict_types=1);
 use arabcoders\database\Connection;
 use arabcoders\database\Dialect\DialectFactory;
 
-$pdo = new \PDO('sqlite::memory:');
+$pdo = new \PDO('sqlite:app.sqlite');
 $db = new Connection($pdo, DialectFactory::fromPdo($pdo));
 ```
 
-All query objects implement `arabcoders\database\Query\QueryInterface`. The main types are `SelectQuery`, `InsertQuery`, `UpdateQuery`, `DeleteQuery`, and `Condition`.
+The examples assume the referenced tables already exist.
 
 ## Read rows
 
@@ -38,11 +38,11 @@ $rows = $db->fetchAll($query);
 $first = $db->fetchOne($query);
 ```
 
-`SelectQuery` supports projections through `select`, `selectAs`, `selectRaw`, and aggregate helpers. It also supports joins, `joinSubquery(...)`, `fromSubquery(...)`, CTEs through `with(name, query, recursive: bool)`, `union`, `unionAll`, `intersect`, `except`, `where`, `groupBy`, `having`, `orderBy`, `limit`, `forUpdate()`, and `lockInShareMode()`.
+Select queries also support computed columns (`selectAs()`, `selectRaw()`, `selectCount()` and related aggregates), joins and subquery joins, CTEs with `with()`, set operations (`union()`, `unionAll()`, `intersect()`, `except()`), grouping and `having()`, and row locking with `forUpdate()` or `lockInShareMode()`. See [driver limits](#driver-limits) for lock and set-operation restrictions.
 
 ## Insert rows
 
-`values()` inserts one row. Use `rows()` for multiple rows, or `fromSelect()` for `INSERT ... SELECT`:
+`values()` inserts one row, `rows()` inserts several, and `fromSelect()` inserts the result of a query:
 
 ```php
 use arabcoders\database\Query\InsertQuery;
@@ -55,14 +55,15 @@ $affected = $db->execute(
 );
 ```
 
-Insert queries also support `onConflict([...])`, `onConflictConstraint('constraint_name')` for PostgreSQL, `doUpdate([...])`, `doNothing()`, and `upsert($updates, $conflictColumns, $constraint)`. Use `UpsertValue::inserted('column')` for an inserted-value expression in an upsert update payload. `returning([...])` works only when the active dialect reports support.
+Upserts use `onConflict([...])` or PostgreSQL's `onConflictConstraint('name')`, followed by `doUpdate([...])` or `doNothing()`. `upsert($updates, $conflictColumns)` performs both steps. `UpsertValue::inserted('column')` references the value proposed by the insert in an update payload. `doNothing()` and `returning([...])` require dialect support; see [driver limits](#driver-limits).
 
-## Update rows safely
+## Update and delete rows
 
-**Safety rule:** every update and delete must have an explicit `where(...)` condition. The package throws instead of generating an unrestricted statement when the condition is missing.
+Every update and delete needs an explicit `where(...)`. A missing condition throws a `RuntimeException`.
 
 ```php
 use arabcoders\database\Query\Condition;
+use arabcoders\database\Query\DeleteQuery;
 use arabcoders\database\Query\UpdateQuery;
 
 $affected = $db->execute(
@@ -70,35 +71,24 @@ $affected = $db->execute(
         ->values(['status' => 'done'])
         ->where(Condition::equals('id', 42))
 );
-```
 
-`UpdateQuery` also supports `setRaw()`, CTEs through `with(...)`, joins where the dialect allows them, `orderBy(...)`, `limit(...)`, and optional `returning(...)`.
-
-## Delete rows safely
-
-Apply the same explicit predicate rule to deletes:
-
-```php
-use arabcoders\database\Query\Condition;
-use arabcoders\database\Query\DeleteQuery;
-
-$affected = $db->execute(
+$deleted = $db->execute(
     (new DeleteQuery('todos'))
         ->where(Condition::equals('id', 42))
 );
 ```
 
-`DeleteQuery` supports CTEs through `with(...)`, joins where the dialect allows them, `orderBy(...)`, `limit(...)`, and optional `returning(...)`.
+Both write queries support CTEs and `returning()` where the dialect allows them. `orderBy()` and `limit()` on updates and deletes are not portable: PostgreSQL rejects them, and SQLite requires a build with update/delete limit support.
 
-Join behavior differs by database:
+Joined updates and deletes differ by driver:
 
 - MySQL supports joined update and delete syntax directly.
-- PostgreSQL translates joined operations into `FROM` and `USING` forms where possible, and only supports `INNER` joins for these operations.
-- SQLite does not support joined updates or deletes.
+- PostgreSQL accepts only `INNER` joins.
+- SQLite rejects joined updates and deletes.
 
-## Transactions and execution
+## Transactions
 
-`transaction()` commits when the callback succeeds and rolls back when it throws. If a transaction is already active, it uses a savepoint:
+`transaction()` commits when the callback returns and rolls back when it throws. Inside an active transaction it uses a savepoint:
 
 ```php
 $db->transaction(function () use ($db): void {
@@ -117,51 +107,29 @@ $db->transaction(function () use ($db): void {
 });
 ```
 
-Use `transactionRetry($callback, $maxAttempts = 3, $shouldRetry = null, $baseDelayMs = 0)` when retry behavior is required. Other execution methods are:
+`transactionRetry()` retries deadlocks, lock timeouts, and serialization failures, with 3 attempts by default. Pass a `$shouldRetry` callback to choose which errors to retry.
 
-- `fetchAll($query)` for all rows.
-- `fetchOne($query)` for the first row or `null`.
-- `execute($query)` for the affected row count.
-- `cursor($query)` for a row generator.
-- `chunked($query, $size)` for a generator of fixed-size row arrays.
-- `execRaw($sql, $params = [])` and `fetchAllRaw($sql, $params = [])` for raw SQL.
+Other execution methods: `fetchAll()` and `fetchOne()` return rows, `execute()` returns an affected row count, `cursor()` and `chunked()` stream rows, and `execRaw()` and `fetchAllRaw()` run SQL with bound parameters.
 
-Execution failures throw `arabcoders\database\DatabaseException`.
+PDO failures during execution are wrapped in `arabcoders\database\DatabaseException`.
 
 ## Conditions
 
-`Condition` builds `WHERE`, `HAVING`, and join predicates. Common builders are:
+`Condition` builds predicates for `where()`, `having()`, and join conditions. Common builders cover comparisons (`equals()`, `notEquals()`, `greaterThan()`, `between()`), null and set checks (`isNull()`, `in()`, `notIn()`), patterns (`like()`, `iLike()`, `startsWith()`, `regex()`), and column comparisons (`columnEquals()`, `columnCompare()`). Subquery predicates include `exists()` and `inSubquery()`. Combine predicates with `Condition::and()`, `or()`, `not()`, or `raw()`. `Condition::raw()` takes SQL text without bound parameters; don't pass user input to it.
 
-- Comparisons: `equals`, `notEquals`, `greaterThan`, `greaterOrEqual`, `lessThan`, `lessOrEqual`, and `between`.
-- Null and set checks: `isNull`, `isNotNull`, `in`, and `notIn`.
-- Patterns: `like`, `notLike`, `iLike`, `notILike`, `startsWith`, `endsWith`, `regex`, and `notRegex`.
-- Column comparisons: `columnEquals`, `columnNotEquals`, `columnGreaterThan`, `columnGreaterOrEqual`, `columnLessThan`, `columnLessOrEqual`, and `columnCompare`.
-- Subqueries: `exists`, `notExists`, `inSubquery`, and `notInSubquery`.
-- Composition: `and`, `or`, `not`, and `raw`.
+JSON predicates use the `jsonPath*()` and `jsonArray*()` methods. PostgreSQL vector predicates are `vectorCosineDistance()`, `vectorL2Distance()`, and `vectorInnerProductDistance()`; each requires an operator and threshold. `fullText()` is available when the dialect reports full-text support.
 
-## Advanced predicates
-
-JSON predicates include `jsonPathEquals`, `jsonPathNotEquals`, `jsonPathContains`, `jsonPathNotContains`, `jsonPathExists`, `jsonPathNotExists`, `jsonPathIn`, `jsonPathNotIn`, `jsonArrayContains`, and `jsonArrayNotContains`.
-
-PostgreSQL vector predicates are `vectorCosineDistance`, `vectorL2Distance`, and `vectorInnerProductDistance`. Full-text predicates use `fullText`.
-
-Dialect behavior includes:
-
-- `iLike` uses native `ILIKE` on PostgreSQL and falls back to `LOWER(...) LIKE LOWER(...)` elsewhere.
-- Regex operators are rendered per dialect.
-- JSON path and array predicates are implemented for MySQL, PostgreSQL, and SQLite.
-- Vector predicates throw unless the active dialect is PostgreSQL.
-- Full-text predicates throw when the active dialect does not report full-text support.
+SQLite regex predicates require a registered `REGEXP` function.
 
 ## Raw expressions and identifiers
 
-`RawExpression` can be used in insert and update payloads. `UpdateQuery::setRaw()` is a shortcut for one raw update expression. `Identifier` safely quotes identifiers, including dotted names and aliases.
+`RawExpression` can be used in insert and update payloads. `UpdateQuery::setRaw()` is a shortcut for one raw update expression. `Identifier` quotes identifiers, including dotted names and aliases.
 
 Use raw SQL only for expressions the query API does not represent. Keep user-provided values parameterized.
 
 ## Macros
 
-All query classes use `Macroable`, so you can add project-specific helpers:
+Register project-specific query helpers with `macro()`:
 
 ```php
 use arabcoders\database\Query\SelectQuery;
@@ -175,17 +143,14 @@ $query = (new SelectQuery('events'))->recent(25);
 
 ## Query caching
 
-Query classes implement `CacheableQueryInterface` and expose `cache($key, $ttl = null)`, `cacheKey()`, and `cacheTtl()`. Configure a PSR simple cache backend with `Connection::setCache()` before executing cache-aware queries.
+Call `cache($key, $ttl)` on a query and set a PSR-16 cache with `Connection::setCache()`. `fetchAll()` and `fetchOne()` read and write the cache. `fetchAllCached()` and `fetchOneCached()` accept an explicit key and TTL.
 
-For explicit cache keys, use `fetchAllCached($query, $key, $ttl)` or `fetchOneCached($query, $key, $ttl)`.
+## Driver limits
 
-## Driver differences
+- `INTERSECT` and `EXCEPT` are rejected on MySQL.
+- `FOR UPDATE` works on MySQL and PostgreSQL. `LOCK IN SHARE MODE` is MySQL-only.
+- `RETURNING` is enabled on PostgreSQL and SQLite. For MySQL, check the dialect's `supportsReturning()`; MariaDB is rejected.
+- `DO NOTHING` upserts work on PostgreSQL and SQLite, not MySQL.
+- Subqueries cannot contain `WITH`.
 
-- `INTERSECT` and `EXCEPT` are rejected for MySQL.
-- `FOR UPDATE` works on MySQL and PostgreSQL.
-- `LOCK IN SHARE MODE` is MySQL-only.
-- `RETURNING` depends on the active dialect. MySQL support depends on server version and doesn't apply to MariaDB. PostgreSQL and SQLite support `RETURNING`.
-- PostgreSQL and SQLite support `DO NOTHING` upsert mode.
-- Subqueries cannot include `WITH`; `QueryCompiler` enforces this rule.
-
-See [dialects and extensibility](dialects.md) for DML and DDL dialect APIs, feature flags, registration, and schema-specific driver behavior.
+See [dialects](dialects.md) for driver selection and custom dialects.

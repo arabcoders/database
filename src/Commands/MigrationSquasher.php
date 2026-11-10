@@ -60,9 +60,13 @@ final readonly class MigrationSquasher
         $combinedOperations = [];
         $fromSchema = new SchemaDefinition();
         $toSchema = new SchemaDefinition();
+        $historicalState = new SchemaDefinition();
 
         $state = new SchemaDefinition();
         for ($i = 0; $i <= $endIndex; $i++) {
+            if ($i === $startIndex) {
+                $historicalState = $state;
+            }
             $instance = $this->createMigrationInstance($definitions[$i]->class);
             $blueprint = new Blueprint($state);
             MigrationReplay::invoke($instance, $blueprint, new SqliteDialect());
@@ -104,6 +108,7 @@ final readonly class MigrationSquasher
             template: $this->template,
             squashedFrom: '' !== $first->squashedFrom ? $first->squashedFrom : $first->id,
             squashedChecksum: $latestChecksum,
+            historicalState: $historicalState,
         );
 
         $deleted = [];

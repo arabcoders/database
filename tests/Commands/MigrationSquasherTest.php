@@ -6,6 +6,7 @@ namespace tests\Commands;
 
 use arabcoders\database\Attributes\Migration as MigrationAttribute;
 use arabcoders\database\Commands\MigrationSquasher;
+use arabcoders\database\Schema\Blueprint\Blueprint;
 use arabcoders\database\Schema\Definition\ColumnDefinition;
 use arabcoders\database\Schema\Definition\ColumnType;
 use arabcoders\database\Schema\Definition\SchemaDefinition;
@@ -15,6 +16,7 @@ use arabcoders\database\Schema\Migration\SchemaBlueprintRunner;
 use arabcoders\database\Schema\Migration\SchemaDefinitionSerializer;
 use arabcoders\database\Schema\Migration\SchemaOperationSerializer;
 use arabcoders\database\Schema\Operation\DropColumnOperation;
+use arabcoders\database\Schema\SchemaIntrospector;
 use PDO;
 use tests\Support\DatabaseTestCase;
 
@@ -293,6 +295,49 @@ final class MigrationSquasherTest extends DatabaseTestCase
         static::assertSame('3003', $attribute->id);
         static::assertSame('3001', $attribute->squashedFrom);
         static::assertSame(hash_file('sha256', $f2), $attribute->squashedChecksum);
+    }
+
+    public function testSquashRecordedTable(): void
+    {
+        $directory = $this->tempDir('migration-squash-recorded');
+        $first = $this->makeCompactMigrationFile(
+            $directory,
+            '4001',
+            "        \$blueprint->createTable('widgets', static function (TableBlueprint \$t): void {\n            \$t->column('id', ColumnType::Int)->primary()->autoIncrement();\n        });\n",
+        );
+        $second = $this->makeCompactMigrationFile(
+            $directory,
+            '4002',
+            "        \$blueprint->table('widgets', static function (TableBlueprint \$t): void {\n            \$t->column('name', ColumnType::Text)->nullable()->add();\n        });\n",
+        );
+        $third = $this->makeCompactMigrationFile(
+            $directory,
+            '4003',
+            "        \$blueprint->table('widgets', static function (TableBlueprint \$t): void {\n            \$t->index('name', 'idx_widgets_name');\n        });\n",
+        );
+        require_once $first;
+        require_once $second;
+        require_once $third;
+
+        $report = new MigrationSquasher($directory, new MigrationTemplate())->squash('4002');
+        $class = $this->evaluateMigration($report['newContents'], 'Migration_4003');
+        $blueprint = new Blueprint();
+        new $class()->change($blueprint);
+        static::assertNull($blueprint->getMigrationPlan());
+        static::assertCount(2, $blueprint->getOperations());
+
+        $pdo = $this->memoryPdo();
+        $runner = new SchemaBlueprintRunner($pdo);
+        $runner->run(new \Migration\Migration_4001(), 'up');
+        $before = new SchemaIntrospector($pdo)->introspect();
+        $diff = $blueprint->toHistoricalDiff($before);
+        static::assertSame(['id', 'name'], array_keys($diff->to->getTable('widgets')->getColumns()));
+        static::assertSame(['name'], $diff->to->getTable('widgets')->getIndex('idx_widgets_name')->columns);
+
+        $runner->run(new $class(), 'up');
+        static::assertSame(['id', 'name'], $this->sqliteColumnNames($pdo, 'widgets'));
+        $runner->run(new $class(), 'down', $before);
+        static::assertSame(['id'], $this->sqliteColumnNames($pdo, 'widgets'));
     }
 
     private function evaluateMigration(string $contents, string $className): string

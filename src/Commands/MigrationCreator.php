@@ -6,7 +6,9 @@ namespace arabcoders\database\Commands;
 
 use arabcoders\database\Schema\Definition\SchemaDefinition;
 use arabcoders\database\Schema\Dialect\SchemaDialectFactory;
+use arabcoders\database\Schema\Migration\BlueprintMigrationRunner;
 use arabcoders\database\Schema\Migration\MigrationFileRenderer;
+use arabcoders\database\Schema\Migration\MigrationRegistry;
 use arabcoders\database\Schema\Migration\MigrationTemplate;
 use arabcoders\database\Schema\Migration\SchemaBlueprintMigrationExporter;
 use arabcoders\database\Schema\Migration\SchemaMigrationPlan;
@@ -165,12 +167,17 @@ final readonly class MigrationCreator
         $file = $directory . DIRECTORY_SEPARATOR . $fileName;
 
         $plan = new SchemaMigrationPlan($dbSchema, $modelSchema, $diff->getOperations());
+        $history = new BlueprintMigrationRunner(
+            $pdo,
+            new MigrationRegistry([$directory], $this->container),
+        )->historicalDiffs();
         $template = new SchemaBlueprintMigrationExporter()->export(
             plan: $plan,
             className: $className,
             id: $timestamp,
             name: $slug,
             template: $this->template,
+            historicalState: array_last($history)?->to,
         );
 
         return new MigrationDraft(

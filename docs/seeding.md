@@ -1,6 +1,6 @@
 # Seeding
 
-Define a `SeederRunner`, place it in the configured seeder directory, and run it through `SeederService`. Seeders handle baseline data, fixtures, demo content, and repeatable setup tasks.
+Use seeders for baseline data and fixtures.
 
 ## Define a seeder
 
@@ -14,7 +14,7 @@ use arabcoders\database\Connection;
 use arabcoders\database\Query\InsertQuery;
 use arabcoders\database\Seeder\SeederRunner;
 
-#[Seeder(name: 'base_users', dependsOn: [], tags: ['base'], groups: ['dev'], mode: 'once')]
+#[Seeder(name: 'base_users', tags: ['base'], groups: ['dev'], mode: 'once')]
 final class BaseUsersSeeder extends SeederRunner
 {
     public function __invoke(Connection $connection): void
@@ -29,11 +29,9 @@ final class BaseUsersSeeder extends SeederRunner
 }
 ```
 
-`SeederRunner` requires `__invoke(Connection $connection): void`. The `Seeder` attribute fields are `name`, `dependsOn`, `tags`, `groups`, and `mode`. Seeder names must be unique.
+Seeder names must be unique, ignoring case. The default seeder mode is `always`.
 
-## Configure and run
-
-`SeederService` accepts a PDO connection, seeder directory, and optional PSR container. `run()` accepts a `SeederRequest|string`, a dry-run default for the string form, and an optional callback:
+## Run seeders
 
 ```php
 use arabcoders\database\Commands\SeederRequest;
@@ -51,29 +49,31 @@ $result = $service->run(new SeederRequest(
 ));
 ```
 
-`SeederRequest` defaults to an empty `classFilter`, `dryRun: true`, `mode: auto`, and `transactionMode: per-seeder`. Therefore the default request previews the selected run. Set `dryRun: false` for execution. `SeederResult` contains selected definitions, the dry-run flag, and execution entries with status, reason, and history ID.
+Requests default to a dry run. Set `dryRun: false` to execute seeders. Inspect `$result->executionEntries()` for run outcomes.
 
-`SeederService::list(): array` returns the discovered `SeederDefinition` values without running them.
+Use `list()` to see available seeders without running them.
 
 ## Filtering and dry runs
 
-`classFilter` is a case-insensitive prefix filter on the seeder name. It must identify one name or the service throws for no match or multiple matches. `tag` and `group` filter the discovered roots. After filtering, required dependencies are added to the execution plan.
+`classFilter` matches a seeder name prefix, ignoring case, and must identify exactly one seeder. Use `tag` and `group` for exact matches; both must match when supplied.
 
-Set `dryRun: true` to return pending and skipped entries without creating the history table or executing seeders. This makes the returned plan suitable for review before data changes.
+Dry runs show pending and skipped seeders without executing them or creating history tables.
+
+`dependsOn` lists seeders that must run first. Required dependencies are included regardless of filters. Unknown names and dependency cycles throw.
 
 ## Run modes and transactions
 
-`SeederRunMode` defines `auto`, `once`, `always`, and `rebuild`:
+`SeederRunMode` defines four modes:
 
-- `auto` uses the mode declared by each seeder.
-- `once` skips a seeder with a successful history row.
-- `always` executes selected seeders regardless of prior successful runs.
-- `rebuild` removes that seeder's previous history before running it again.
+- `auto` uses the mode declared on each seeder.
+- `once` skips seeders that have already succeeded.
+- `always` runs the seeder regardless of previous runs.
+- `rebuild` deletes the seeder's history rows before running it again.
 
-`SeederTransactionMode` defines `none`, `per-seeder`, and `per-run`. The default is `per-seeder`. `per-run` wraps the run in one transaction. `none` does not add transaction wrapping.
+`SeederTransactionMode` controls transaction scope:
 
-## History and dependencies
+- `per-seeder`, the default, wraps each seeder in a transaction.
+- `per-run` wraps the whole run in one transaction.
+- `none` adds no transaction.
 
-`SeederRegistry` scans configured directories, validates the attribute name, checks that classes extend `SeederRunner`, normalizes lists, and sorts definitions by name. `SeederDependencyResolver` adds `dependsOn` entries, orders the result, and detects dependency cycles.
-
-`SeederExecutionHistory` stores execution rows in `seeder_version`, creates the table and index when execution begins, tracks `executed` and `failed` statuses, and supplies the successful-run check used by `once`. A failure during a per-run transaction is recorded after rollback. Database failures throw `arabcoders\database\DatabaseException`.
+Failed attempts are recorded. With `per-run`, a failure rolls back all seeders in that run.

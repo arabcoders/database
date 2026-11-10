@@ -56,12 +56,13 @@ final class SchemaBlueprintMigrationExporter
         string|MigrationTemplate|null $template = null,
         string $squashedFrom = '',
         string $squashedChecksum = '',
+        ?SchemaDefinition $historicalState = null,
     ): string {
         $plan = $this->prunePlan($plan);
         $upOperations = $plan->operations;
         $template = $this->resolveTemplate($template);
         $this->applyTemplateAliases($template);
-        $upBody = $this->renderPlanBody($plan, $upOperations, 2);
+        $upBody = $this->renderPlanBody($plan, $upOperations, 2, $historicalState);
 
         return $this->renderer->renderAutogen(
             className: $className,
@@ -77,16 +78,29 @@ final class SchemaBlueprintMigrationExporter
     /**
      * @param array<int,SchemaOperation> $operations
      */
-    private function renderPlanBody(SchemaMigrationPlan $plan, array $operations, int $indentLevel): string
-    {
-        $payload = $this->exportValue($plan->toArray());
-        $line =
-            $this->indent($indentLevel)
-            . '$blueprint->useMigrationPlan(\arabcoders\database\Schema\Migration\SchemaMigrationPlan::fromArray('
-            . $payload
-            . '));';
+    private function renderPlanBody(
+        SchemaMigrationPlan $plan,
+        array $operations,
+        int $indentLevel,
+        ?SchemaDefinition $historicalState,
+    ): string {
+        $body = $this->renderOperations($operations, $indentLevel);
+        foreach ($plan->from->getTables() as $table) {
+            if ($historicalState?->hasTable($table->name)) {
+                continue;
+            }
 
-        return "\n" . $line . $this->renderOperations($operations, $indentLevel);
+            $payload = $this->exportValue($plan->toArray());
+            $line =
+                $this->indent($indentLevel)
+                . '$blueprint->useMigrationPlan(\arabcoders\database\Schema\Migration\SchemaMigrationPlan::fromArray('
+                . $payload
+                . '));';
+
+            return "\n" . $line . $body;
+        }
+
+        return $body;
     }
 
     private function prunePlan(SchemaMigrationPlan $plan): SchemaMigrationPlan
